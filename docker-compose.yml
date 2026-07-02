@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wick
+      POSTGRES_PASSWORD: wick
+      POSTGRES_DB: wick
+    # ponytail: el host ya tiene un Postgres en 5432; mapeamos a 5433 para
+    # evitar el conflicto (localhost:5432 caería en el Postgres del host).
+    ports:
+      - "5433:5432"
+    volumes:
+      - wick_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wick -d wick"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  wick_pgdata:

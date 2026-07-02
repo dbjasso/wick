@@ -1,0 +1,86 @@
+// Schema de Prisma — Sistema de Registros (diario personal, un solo usuario).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// `date` es la fecha "lógica" del registro (la que el usuario asigna al
+// escribirlo). Va separada de `createdAt` porque pueden diferir: p.ej.
+// escribo el lunes sobre algo del viernes, o creo un registro vacío y lo
+// termino otro día. `createdAt`/`updatedAt` quedan para auditoría interna.
+model Record {
+  id        String    @id @default(cuid())
+  date      DateTime
+  content   Json
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  tags      Tag[]     @relation("RecordTags")
+  comments  Comment[]
+  todoItems TodoItem[]
+}
+
+model TodoItem {
+  id        String   @id @default(cuid())
+  nodeId    String // id estable del nodo del checklist dentro del JSON de TipTap
+  text      String // texto plano extraído del ítem (para listar/buscar sin parsear JSON)
+  checked   Boolean  @default(false)
+  record    Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  recordId  String
+  updatedAt DateTime @updatedAt
+
+  @@unique([recordId, nodeId])
+}
+
+model Tag {
+  id             String        @id @default(cuid())
+  name           String        @unique
+  description    String?
+  // Clave de la paleta en lib/tag-colors.ts (violet|green|amber|blue|pink).
+  // Nullable para no romper tags existentes; al crear se elige siempre.
+  color          String?
+  records        Record[]      @relation("RecordTags")
+  contacts       Contact[]
+  importantDates ImportantDate[]
+  documents      Document[]
+}
+
+model Contact {
+  id     String  @id @default(cuid())
+  name   String
+  email  String?
+  phone  String?
+  tag    Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId  String
+}
+
+model ImportantDate {
+  id     String   @id @default(cuid())
+  label  String
+  date   DateTime
+  tag    Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId  String
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  filename   String
+  url        String // ruta/URL del archivo almacenado (adaptador storage)
+  mimeType   String
+  size       Int
+  uploadedAt DateTime @default(now())
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId      String
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  record    Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  recordId  String
+}

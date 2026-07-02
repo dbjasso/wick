@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+/* Trail — sistema de diseño. Grises cálidos (stone) sin negro/blanco absolutos,
+   un único acento violeta (#7F56D9), color libre solo en tags. Sin sombras:
+   la profundidad la dan los bordes de 1px. */
+@theme {
+  --color-bg: #fafaf9;
+  --color-surface: #ffffff;
+  --color-surface-2: #f5f5f4;
+  --color-border: #e7e5e4;
+  --color-border-strong: #d6d3d1;
+  --color-text: #292524;
+  --color-text-2: #78716c;
+  --color-text-3: #a8a29e;
+  --color-accent: #7f56d9;
+  --color-accent-strong: #6941c6;
+
+  --radius-card: 10px;
+  --radius-btn: 8px;
+  --radius-pill: 99px;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Números tabulares en horas/fechas. Úsalo con la utility `tabular-nums`. */
+
+/* Resaltado de términos de búsqueda. */
+mark {
+  background: #f4ebff;
+  color: #6941c6;
+  border-radius: 3px;
+  padding: 0 0.1em;
+}
+
+/* Editor TipTap (ProseMirror) — minimal, escala de grises, foco con acento. */
+.prose-editor .ProseMirror {
+  min-height: 60vh;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.prose-editor .ProseMirror:focus {
+  outline: none;
+}
+.prose-editor .ProseMirror h2 {
+  font-size: 21px;
+  font-weight: 700;
+  margin: 1.2em 0 0.4em;
+  line-height: 1.3;
+}
+.prose-editor .ProseMirror p {
+  margin: 0.5em 0;
+}
+.prose-editor .ProseMirror ul,
+.prose-editor .ProseMirror ol {
+  margin: 0.5em 0;
+  padding-left: 1.4em;
+}
+.prose-editor .ProseMirror ul:not([data-type="taskList"]) {
+  list-style: disc;
+}
+.prose-editor .ProseMirror ol {
+  list-style: decimal;
+}
+.prose-editor .ProseMirror blockquote {
+  border-left: 2px solid var(--color-border-strong);
+  padding-left: 1em;
+  color: var(--color-text-2);
+  margin: 0.6em 0;
+}
+.prose-editor .ProseMirror code {
+  background: var(--color-surface-2);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+  font-size: 0.9em;
+}
+.prose-editor .ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-3);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* Checklist (TaskList/TaskItem) — TipTap v3 NodeView: ul>li>label(input+span)+div.
+   Ojo: el NodeView NO pone data-type en el li, solo data-checked. */
+.prose-editor .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+  margin: 0.5em 0;
+}
+.prose-editor .ProseMirror ul[data-type="taskList"] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.25em 0;
+  list-style: none;
+}
+.prose-editor .ProseMirror ul[data-type="taskList"] > li > label {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 0.15em 0 0;
+  padding: 0;
+  user-select: none;
+  cursor: pointer;
+}
+.prose-editor .ProseMirror ul[data-type="taskList"] > li > label > input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+.prose-editor .ProseMirror ul[data-type="taskList"] > li > label > span {
+  display: none;
+}
+.prose-editor .ProseMirror ul[data-type="taskList"] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+.prose-editor .ProseMirror ul[data-type="taskList"] > li > div > p {
+  margin: 0;
+}
+.prose-editor .ProseMirror ul[data-type="taskList"] > li[data-checked="true"] > div {
+  color: var(--color-text-3);
+  text-decoration: line-through;
+}
