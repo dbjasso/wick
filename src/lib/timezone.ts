@@ -4,10 +4,10 @@ const DEFAULT_TZ = "America/Monterrey";
 const LOCALE = "es-MX";
 
 export function appTimezone(): string {
+  // ponytail: no usar process.env.TZ — en Linux/Vercel suele ser ":UTC" (POSIX), inválido para Intl.
   return (
-    process.env.NEXT_PUBLIC_APP_TIMEZONE ??
-    process.env.APP_TIMEZONE ??
-    process.env.TZ ??
+    process.env.NEXT_PUBLIC_APP_TIMEZONE ||
+    process.env.APP_TIMEZONE ||
     DEFAULT_TZ
   );
 }
