@@ -6,24 +6,22 @@ import { ipFromHeaders } from "@/lib/get-ip";
 import { rateLimit, recordFailed } from "@/lib/auth-rate-limit";
 import { base32Decode, verifyTotp } from "@/lib/totp";
 
-// Usuario único definido por variables de entorno (no hay registro abierto).
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-// El hash bcrypt contiene `$2b$10$...` y dotenv-expand lo corrompería al
-// cargar el .env (expande `$var`). Lo almacenamos base64-encoded (sin `$`)
-// y lo decodificamos acá.
-const ADMIN_PASSWORD_HASH_B64 = process.env.ADMIN_PASSWORD_HASH;
-const ADMIN_PASSWORD_HASH = ADMIN_PASSWORD_HASH_B64
-  ? Buffer.from(ADMIN_PASSWORD_HASH_B64, "base64").toString("utf8")
-  : "";
+// ponytail: leer env en cada authorize(), no a nivel de módulo. Turbopack
+// compila auth.ts en bundles distintos (RSC vs route); cachear el hash al
+// import rompe el login del form cuando cambia ADMIN_PASSWORD_HASH sin restart.
+function adminFromEnv() {
+  const email = process.env.ADMIN_EMAIL;
+  const hashB64 = process.env.ADMIN_PASSWORD_HASH;
+  const passwordHash = hashB64
+    ? Buffer.from(hashB64, "base64").toString("utf8")
+    : "";
+  return { email, passwordHash };
+}
 
-// 2FA TOTP opcional: si ADMIN_TOTP_SECRET (base32) está seteado, el login
-// requiere además un código TOTP de 6 dígitos.
-const ADMIN_TOTP_SECRET_B32 = process.env.ADMIN_TOTP_SECRET
-  ? process.env.ADMIN_TOTP_SECRET.replace(/\s/g, "")
-  : "";
-const ADMIN_TOTP_SECRET = ADMIN_TOTP_SECRET_B32
-  ? base32Decode(ADMIN_TOTP_SECRET_B32)
-  : null;
+function totpSecretFromEnv() {
+  const b32 = process.env.ADMIN_TOTP_SECRET?.replace(/\s/g, "") ?? "";
+  return b32 ? base32Decode(b32) : null;
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -47,33 +45,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        if (!ADMIN_EMAIL || !ADMIN_PASSWORD_HASH) return null;
+        const { email: adminEmail, passwordHash } = adminFromEnv();
+        if (!adminEmail || !passwordHash) return null;
         const email = credentials?.email;
         const password = credentials?.password;
         if (typeof email !== "string" || typeof password !== "string") {
           return null;
         }
-        if (email !== ADMIN_EMAIL) {
+        if (email.trim() !== adminEmail) {
           recordFailed(ip);
           console.warn(`[auth] login fail email incorrecto ip=${ip}`);
           return null;
         }
-        const ok = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+        const ok = await bcrypt.compare(password, passwordHash);
         if (!ok) {
           recordFailed(ip);
           console.warn(`[auth] login fail password incorrecto ip=${ip}`);
           return null;
         }
         // 2FA: si hay secret configurado, exigir código TOTP válido.
-        if (ADMIN_TOTP_SECRET) {
+        const totpSecret = totpSecretFromEnv();
+        if (totpSecret) {
           const totp = credentials?.totp;
-          if (typeof totp !== "string" || !verifyTotp(totp.trim(), ADMIN_TOTP_SECRET)) {
+          if (typeof totp !== "string" || !verifyTotp(totp.trim(), totpSecret)) {
             // No sumamos al rate limit de password (factor separado), pero logueamos.
             console.warn(`[auth] login fail TOTP incorrecto ip=${ip}`);
             return null;
           }
         }
-        return { id: ADMIN_EMAIL, email: ADMIN_EMAIL };
+        return { id: adminEmail, email: adminEmail };
       },
     }),
   ],

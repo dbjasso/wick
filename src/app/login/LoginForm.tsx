@@ -1,13 +1,39 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { loginAction } from "./actions";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
 export function LoginForm({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
-  const [state, formAction, pending] = useActionState(loginAction, undefined);
+  const router = useRouter();
+  const [error, setError] = useState<string | undefined>();
+  const [pending, setPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(undefined);
+    setPending(true);
+
+    const formData = new FormData(e.currentTarget);
+    const result = await signIn("credentials", {
+      email: String(formData.get("email") ?? "").trim(),
+      password: String(formData.get("password") ?? ""),
+      totp: String(formData.get("totp") ?? "").trim(),
+      redirect: false,
+    });
+
+    setPending(false);
+    if (result?.ok) {
+      router.push("/");
+      router.refresh();
+      return;
+    }
+
+    setError("Correo o contraseña incorrectos. Intenta de nuevo.");
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-bg px-4">
@@ -24,8 +50,8 @@ export function LoginForm({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
           </p>
         </div>
 
-        <form action={formAction} className="space-y-4">
-          {state?.error && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
             <div
               role="alert"
               className="rounded-btn border px-3 py-2.5 text-sm"
@@ -35,7 +61,7 @@ export function LoginForm({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
                 color: "#B42318",
               }}
             >
-              {state.error}
+              {error}
             </div>
           )}
 

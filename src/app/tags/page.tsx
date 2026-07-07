@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { Sidebar } from "@/components/ui/Sidebar";
+import { AppShell } from "@/components/AppShell";
 import { TagsView } from "@/components/TagsView";
 
 export const dynamic = "force-dynamic";
@@ -25,13 +25,8 @@ export default async function TagsPage() {
   }));
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar email={session?.user?.email} pendingCount={pendingCount} />
-      <main className="flex-1 px-[34px] py-[26px]">
-        <div className="mx-auto max-w-[860px]">
-          <TagsView tags={rows} />
-        </div>
-      </main>
-    </div>
+    <AppShell email={session?.user?.email} pendingCount={pendingCount}>
+      <TagsView tags={rows} />
+    </AppShell>
   );
 }

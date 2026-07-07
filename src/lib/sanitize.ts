@@ -50,6 +50,10 @@ function sanitizeAttrs(type: string, attrs: unknown): Record<string, unknown> | 
   } else if (type === "taskItem") {
     if (typeof attrs.checked === "boolean") out.checked = attrs.checked;
     if (typeof attrs.nodeId === "string") out.nodeId = attrs.nodeId;
+    // Fecha de ejecución opcional (solo día). Solo aceptamos "YYYY-MM-DD".
+    if (typeof attrs.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(attrs.dueDate)) {
+      out.dueDate = attrs.dueDate;
+    }
   } else if (type === "link") {
     const href = safeHref(attrs.href);
     if (href) out.href = href;

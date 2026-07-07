@@ -5,11 +5,17 @@ import { useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskList } from "@tiptap/extension-list";
+import { ArrowLeft, MoreHorizontal, Trash2, Clock } from "lucide-react";
 import { Toolbar } from "./Toolbar";
 import { TagsField, type TagValue } from "./TagsField";
 import { TaskItemWithId } from "./TaskItemWithId";
 import { CommentsSection, type CommentData } from "./CommentsSection";
-import { isoToLocalInput, localInputToIso } from "@/lib/timezone";
+import {
+  isoToLocalInput,
+  localInputToIso,
+  formatDayHeader,
+  formatTime,
+} from "@/lib/timezone";
 
 const EMPTY_DOC = { type: "doc", content: [] };
 
@@ -22,15 +28,6 @@ export type RecordData = {
 };
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-
-function relTime(savedAt: number, now: number): string {
-  const s = Math.max(0, Math.floor((now - savedAt) / 1000));
-  if (s < 2) return "Guardado";
-  if (s < 60) return `Guardado hace ${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `Guardado hace ${m}m`;
-  return `Guardado hace ${Math.floor(m / 60)}h`;
-}
 
 export function RecordEditor({
   record,
@@ -50,8 +47,6 @@ export function RecordEditor({
   const [tags, setTags] = useState<TagValue[]>(
     record?.tags?.map((t) => ({ name: t.name, color: t.color ?? undefined })) ?? [],
   );
-  const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [now, setNow] = useState<number>(0);
 
   // Refs para evitar closures stale dentro del debounce / beforeunload.
   const contentRef = useRef<unknown>(record?.content ?? EMPTY_DOC);
@@ -67,13 +62,6 @@ export function RecordEditor({
   useEffect(() => { dateRef.current = dateLocal; }, [dateLocal]);
   useEffect(() => { idRef.current = recordId; }, [recordId]);
   useEffect(() => { tagsRef.current = tags; }, [tags]);
-
-  // Reloj para el "hace Xs" del indicador de guardado.
-  useEffect(() => {
-    if (status !== "saved") return;
-    const t = setInterval(() => setNow(Date.now()), 5000);
-    return () => clearInterval(t);
-  }, [status]);
 
   const save = useCallback(async () => {
     if (!dirtyRef.current) return;
@@ -112,8 +100,6 @@ export function RecordEditor({
         if (!res.ok) throw new Error("patch failed");
       }
       dirtyRef.current = false;
-      setSavedAt(Date.now());
-      setNow(Date.now());
       setStatus("saved");
     } catch {
       setStatus("error");
@@ -208,97 +194,102 @@ export function RecordEditor({
 
   const deleteRecord = async () => {
     if (!recordId) return;
-    if (!confirm("¿Eliminar este registro? No se puede deshacer.")) return;
+    if (!confirm("Delete this entry? This can't be undone.")) return;
     const res = await fetch(`/api/records/${recordId}`, { method: "DELETE" });
     if (res.ok) router.push("/");
   };
 
+  const dateIso = localInputToIso(dateLocal);
+  const { weekday, dayNumber, monthYear } = formatDayHeader(
+    dateLocal.slice(0, 10),
+  );
+  const dateLabel = `${weekday.slice(0, 3)}, ${monthYear.split(" ")[0]?.slice(0, 3) ?? ""} ${dayNumber}`;
+
   return (
-    <div className="flex min-h-screen flex-col bg-bg">
-      <div className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur-sm">
-        <header className="flex items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={back}
-              className="flex h-8 w-8 items-center justify-center rounded-btn text-text-2 hover:bg-surface-2 hover:text-text"
-              aria-label="Volver"
-              title="Volver"
-            >
-              ←
-            </button>
-            <input
-              type="datetime-local"
-              value={dateLocal}
-              onChange={(e) => onDateChange(e.target.value)}
-              className="rounded-btn border border-border bg-surface-2 px-2.5 py-1.5 text-sm tabular-nums text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-              title="Fecha y hora del registro"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            {recordId && (
+    <div className="flex h-screen flex-col bg-white">
+      <div className="flex items-center justify-between border-b border-stone-100 px-3 py-2.5 md:px-4">
+        <button
+          type="button"
+          onClick={back}
+          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {dateLabel}
+        </button>
+
+        <div className="flex items-center gap-2">
+          <SaveIndicator status={status} />
+          {recordId && (
+            <div className="group relative">
               <button
                 type="button"
-                onClick={() => void deleteRecord()}
-                className="rounded-btn px-2.5 py-1.5 text-sm text-text-2 hover:bg-surface-2 hover:text-[#B42318]"
-                title="Eliminar registro"
+                className="rounded-md p-1.5 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+                aria-label="More actions"
               >
-                Eliminar
+                <MoreHorizontal className="h-4 w-4" />
               </button>
-            )}
-            <SaveIndicator status={status} savedAt={savedAt} now={now} />
-          </div>
-        </header>
-
-        <Toolbar editor={editor} className="border-b-0" />
+              <div className="invisible absolute right-0 top-full z-10 mt-1 w-44 rounded-md border border-stone-200 bg-white py-1 opacity-0 shadow-lg transition group-focus-within:visible group-focus-within:opacity-100">
+                <button
+                  type="button"
+                  onClick={() => void deleteRecord()}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete entry
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[760px] flex-1 px-4 py-6">
-        <EditorContent editor={editor} className="prose-editor" />
-        <div className="mt-8 border-t border-border pt-4">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-3">
-            Tags
+      <Toolbar editor={editor} />
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-5xl px-4 pb-32 pt-8 md:px-8 md:pt-12">
+          <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 pb-5">
+            <label className="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs text-stone-500 transition hover:bg-stone-100">
+              <Clock className="h-3.5 w-3.5" />
+              <span className="tabular-nums">
+                {dateLabel} · {formatTime(dateIso)}
+              </span>
+              <input
+                type="datetime-local"
+                value={dateLocal}
+                onChange={(e) => onDateChange(e.target.value)}
+                className="sr-only"
+                aria-label="Entry date and time"
+              />
+            </label>
+            <span className="h-3.5 w-px bg-stone-200" />
+            <TagsField value={tags} onChange={onTagsChange} onAfterChange={flush} />
           </div>
-          <TagsField value={tags} onChange={onTagsChange} onAfterChange={flush} />
+
+          <EditorContent editor={editor} className="prose-editor pt-6" />
+
+          {recordId && (
+            <CommentsSection recordId={recordId} initial={record?.comments ?? []} />
+          )}
         </div>
-        {recordId && (
-          <CommentsSection recordId={recordId} initial={record?.comments ?? []} />
-        )}
       </div>
     </div>
   );
 }
 
-function SaveIndicator({
-  status,
-  savedAt,
-  now,
-}: {
-  status: SaveStatus;
-  savedAt: number | null;
-  now: number;
-}) {
+function SaveIndicator({ status }: { status: SaveStatus }) {
   if (status === "idle") return null;
-  if (status === "saving") {
-    return (
-      <span className="flex items-center gap-1.5 text-xs font-medium text-text-2">
-        <span className="h-1.5 w-1.5 rounded-full bg-text-3" />
-        Guardando…
-      </span>
-    );
-  }
-  if (status === "error") {
-    return (
-      <span className="flex items-center gap-1.5 text-xs font-medium text-text-2">
-        <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#F59E0B" }} />
-        Sin conexión, reintentando
-      </span>
-    );
-  }
+  const color =
+    status === "saved"
+      ? "bg-emerald-500"
+      : status === "saving"
+        ? "animate-pulse bg-amber-400"
+        : "bg-red-500";
+  const label =
+    status === "saved" ? "Saved" : status === "saving" ? "Saving…" : "Couldn't save";
   return (
-    <span className="flex items-center gap-1.5 text-xs font-medium text-text-2">
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#16A34A" }} />
-      {savedAt ? relTime(savedAt, now) : "Guardado"}
+    <span className="flex items-center gap-1.5 text-xs text-stone-400">
+      <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+      <span className="hidden sm:inline">{label}</span>
     </span>
   );
 }

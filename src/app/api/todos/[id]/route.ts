@@ -2,13 +2,29 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
-import { patchTaskItemChecked } from "@/lib/todos";
+import {
+  patchTaskItemChecked,
+  patchTaskItemDueDate,
+  dueDateToDb,
+} from "@/lib/todos";
 
-const patchSchema = z.object({ checked: z.boolean() });
+const patchSchema = z
+  .object({
+    checked: z.boolean().optional(),
+    // "YYYY-MM-DD" para fijar la fecha, null para quitarla.
+    dueDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable()
+      .optional(),
+  })
+  .refine((v) => v.checked !== undefined || v.dueDate !== undefined, {
+    message: "Nothing to update",
+  });
 
-// PATCH /api/todos/:id — marcar como hecho/pendiente. Actualiza TodoItem.checked
-// Y parchea el nodo taskItem correspondiente dentro del content JSON del registro,
-// para que abrir el registro muestre el mismo estado.
+// PATCH /api/todos/:id — actualiza checked y/o dueDate. Mantiene sincronizado el
+// nodo taskItem dentro del content JSON del registro, para que el editor muestre
+// lo mismo que la lista global de To-dos.
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -27,26 +43,42 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation", details: parsed.error.flatten() }, { status: 400 });
   }
-  const { checked } = parsed.data;
+  const { checked, dueDate } = parsed.data;
 
   const todo = await prisma.todoItem.findUnique({ where: { id } });
   if (!todo) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Parchear el content del registro y persistirlo.
+  // Parchear el content del registro (checked y/o dueDate) y persistirlo.
   const record = await prisma.record.findUnique({ where: { id: todo.recordId } });
   if (record) {
-    const patched = patchTaskItemChecked(record.content, todo.nodeId, checked);
-    if (patched !== null) {
+    let content: unknown = record.content;
+    let changed = false;
+    if (checked !== undefined) {
+      const p = patchTaskItemChecked(content, todo.nodeId, checked);
+      if (p !== null) { content = p; changed = true; }
+    }
+    if (dueDate !== undefined) {
+      const p = patchTaskItemDueDate(content, todo.nodeId, dueDate);
+      if (p !== null) { content = p; changed = true; }
+    }
+    if (changed) {
       await prisma.record.update({
         where: { id: record.id },
-        data: { content: patched as never },
+        data: { content: content as never },
       });
     }
   }
 
   const updated = await prisma.todoItem.update({
     where: { id },
-    data: { checked },
+    data: {
+      ...(checked !== undefined ? { checked } : {}),
+      ...(dueDate !== undefined ? { dueDate: dueDateToDb(dueDate) } : {}),
+    },
   });
-  return NextResponse.json({ id: updated.id, checked: updated.checked });
+  return NextResponse.json({
+    id: updated.id,
+    checked: updated.checked,
+    dueDate: updated.dueDate ? updated.dueDate.toISOString().slice(0, 10) : null,
+  });
 }

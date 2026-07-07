@@ -1,11 +1,33 @@
 import { PrismaClient } from "@prisma/client";
 
-// ponytail: singleton global para evitar instancias múltiples en dev
-// (Next recarga módulos en hot-reload y crea PrismaClients de más).
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+  prismaUrl?: string;
+  prismaFingerprint?: string;
+};
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({ log: ["error", "warn"] });
+const url = process.env.DATABASE_URL;
+// Bump when schema changes so dev hot-reload doesn't keep a stale PrismaClient.
+const SCHEMA_FINGERPRINT = "todo-dueDate-v2-explicit-url";
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+function createPrisma() {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL is not set");
+  return new PrismaClient({
+    datasources: { db: { url } },
+    log: ["error", "warn"],
+  });
+}
+
+const cacheOk =
+  globalForPrisma.prisma &&
+  globalForPrisma.prismaUrl === url &&
+  globalForPrisma.prismaFingerprint === SCHEMA_FINGERPRINT;
+
+export const prisma = cacheOk ? globalForPrisma.prisma! : createPrisma();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+  globalForPrisma.prismaUrl = url;
+  globalForPrisma.prismaFingerprint = SCHEMA_FINGERPRINT;
+}

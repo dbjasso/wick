@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/Input";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TagPill } from "@/components/ui/TagPill";
-import { Sidebar } from "@/components/ui/Sidebar";
+import { AppShell } from "@/components/AppShell";
 import { TAG_COLORS, TAG_COLOR_KEYS } from "@/lib/tag-colors";
 
 // Página de muestra temporal para validar el sistema de diseño. Borrar tras
@@ -25,9 +25,7 @@ const SWATCHES: { token: string; var: string }[] = [
 
 export default function UIPreview() {
   return (
-    <div className="flex min-h-screen">
-      <Sidebar email="admin@wick.local" pendingCount={3} />
-
+    <AppShell email="admin@wick.local" pendingCount={3}>
       <main className="flex-1 px-8 py-8">
         <div className="mx-auto max-w-3xl space-y-10">
           <header>
@@ -137,7 +135,7 @@ export default function UIPreview() {
           </Section>
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }
 

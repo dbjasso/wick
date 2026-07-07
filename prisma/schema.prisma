@@ -7,6 +7,8 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+
 }
 
 // `date` es la fecha "lógica" del registro (la que el usuario asigna al
@@ -25,13 +27,16 @@ model Record {
 }
 
 model TodoItem {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   nodeId    String // id estable del nodo del checklist dentro del JSON de TipTap
   text      String // texto plano extraído del ítem (para listar/buscar sin parsear JSON)
-  checked   Boolean  @default(false)
-  record    Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  checked   Boolean   @default(false)
+  // Fecha de ejecución opcional (solo día, sin hora). Se sincroniza desde el
+  // atributo `dueDate` del taskItem de TipTap. Editable también desde To-dos.
+  dueDate   DateTime?
+  record    Record    @relation(fields: [recordId], references: [id], onDelete: Cascade)
   recordId  String
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime  @updatedAt
 
   @@unique([recordId, nodeId])
 }

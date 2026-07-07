@@ -2,6 +2,7 @@
 // En cliente hace falta NEXT_PUBLIC_APP_TIMEZONE (mismo valor).
 const DEFAULT_TZ = "America/Monterrey";
 const LOCALE = "es-MX";
+const DISPLAY_LOCALE = "en-US";
 
 export function appTimezone(): string {
   // ponytail: no usar process.env.TZ — en Linux/Vercel suele ser ":UTC" (POSIX), inválido para Intl.
@@ -114,6 +115,27 @@ export function formatTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** Editorial day header parts (English UI). */
+export function formatDayHeader(dateKey: string): {
+  weekday: string;
+  dayNumber: number;
+  monthYear: string;
+} {
+  const anchor = new Date(localInputToIso(`${dateKey}T12:00`));
+  return {
+    weekday: anchor.toLocaleDateString(DISPLAY_LOCALE, {
+      weekday: "long",
+      timeZone: appTimezone(),
+    }),
+    dayNumber: Number(tzPart(anchor, "day", { day: "numeric" })),
+    monthYear: anchor.toLocaleDateString(DISPLAY_LOCALE, {
+      month: "long",
+      year: "numeric",
+      timeZone: appTimezone(),
+    }),
+  };
 }
 
 /** "jue 2 jul" para una clave YYYY-MM-DD. */

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { RecordEditor, type RecordData } from "@/components/editor/RecordEditor";
 
 export const metadata = { title: "Editar registro" };
+export const dynamic = "force-dynamic";
 
 export default async function EditarRegistroPage({
   params,

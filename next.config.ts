@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 // Headers de seguridad aplicados a todas las rutas.
 // ponytail: CSP permite 'unsafe-inline' para script/style porque Next.js inyecta
@@ -31,6 +35,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // ponytail: /Users/dbjc/package-lock.json made Turbopack pick the wrong root
+  // and cache a stale DATABASE_URL in .next dev chunks.
+  turbopack: {
+    root: projectRoot,
+  },
   async headers() {
     return [
       {

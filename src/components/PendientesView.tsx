@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { TagPill } from "@/components/ui/TagPill";
-import { Checkbox } from "@/components/ui/Checkbox";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { DueDateButton } from "@/components/ui/DueDateButton";
 import {
-  recencyGroup,
-  RECENCY_LABELS,
   shortDate,
-  type RecencyGroup,
+  todoBucket,
+  TODO_BUCKET_ORDER,
+  TODO_BUCKET_LABELS,
+  type TodoBucket,
 } from "@/lib/date-labels";
 
 type Tag = { id: string; name: string; color: string | null };
@@ -17,24 +18,16 @@ type TodoItem = {
   id: string;
   text: string;
   checked: boolean;
+  dueDate: string | null;
   record: { id: string; date: string; title: string; tags: Tag[] };
 };
 
 type Status = "pending" | "done" | "all";
-
-const STATUS_OPTIONS: { value: Status; label: string; countKey: keyof Counts }[] = [
-  { value: "pending", label: "Abiertos", countKey: "open" },
-  { value: "done", label: "Completados", countKey: "done" },
-  { value: "all", label: "Todos", countKey: "all" },
-];
-
 type Counts = { open: number; done: number; all: number };
-
-const GROUP_ORDER: RecencyGroup[] = ["hoy", "semana", "anteriores"];
 
 export function PendientesView() {
   const [status, setStatus] = useState<Status>("pending");
-  const [tagId, setTagId] = useState<string>("");
+  const [tagId, setTagId] = useState("");
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [counts, setCounts] = useState<Counts>({ open: 0, done: 0, all: 0 });
@@ -68,16 +61,28 @@ export function PendientesView() {
   }, [status, tagId]);
 
   const grouped = useMemo(() => {
-    const map: Record<RecencyGroup, TodoItem[]> = {
-      hoy: [],
-      semana: [],
-      anteriores: [],
+    const map: Record<TodoBucket, TodoItem[]> = {
+      overdue: [],
+      today: [],
+      week: [],
+      later: [],
+      none: [],
     };
-    for (const t of todos) {
-      map[recencyGroup(t.record.date)].push(t);
+    for (const t of todos) map[todoBucket(t.dueDate)].push(t);
+    for (const bucket of TODO_BUCKET_ORDER) {
+      map[bucket].sort((a, b) => {
+        if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+        if (a.dueDate) return -1;
+        if (b.dueDate) return 1;
+        return b.record.date.localeCompare(a.record.date);
+      });
     }
     return map;
   }, [todos]);
+
+  const total = counts.open + counts.done;
+  const tagFilterLabel =
+    tags.find((t) => t.id === tagId)?.name ?? "All tags";
 
   async function toggle(id: string, checked: boolean) {
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, checked } : t)));
@@ -100,117 +105,161 @@ export function PendientesView() {
     }
   }
 
+  async function setDueDate(id: string, dueDate: string | null) {
+    const prev = todos.find((t) => t.id === id)?.dueDate ?? null;
+    setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, dueDate } : t)));
+    const res = await fetch(`/api/todos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dueDate }),
+    });
+    if (!res.ok) {
+      setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, dueDate: prev } : t)));
+    }
+  }
+
   function primaryTag(t: TodoItem): Tag | undefined {
     if (tagId) return t.record.tags.find((x) => x.id === tagId) ?? t.record.tags[0];
     return t.record.tags[0];
   }
 
   return (
-    <main className="flex-1 px-[34px] py-[26px]">
-      <div className="mx-auto max-w-[860px]">
-        <header className="mb-6">
-          <h1 className="text-xl font-semibold text-text">Pendientes</h1>
-          <p className="mt-1 text-sm text-text-2">
-            To-do&apos;s de todos tus registros, en un solo lugar. Marca aquí y se
-            actualiza en el registro original.
+    <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-10">
+        <header className="pb-6">
+          <h1 className="font-display text-3xl text-stone-900">To-dos</h1>
+          <p className="mt-1 text-sm text-stone-400">
+            From all your entries, in one place. Check here and the original updates too.
           </p>
         </header>
 
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5">
-            {STATUS_OPTIONS.map((s) => {
-              const n = counts[s.countKey];
-              const active = status === s.value;
-              return (
-                <button
-                  key={s.value}
-                  type="button"
-                  onClick={() => setStatus(s.value)}
-                  className={`rounded-pill border px-3 py-1 text-sm font-medium transition-colors ${
-                    active
-                      ? "border-text bg-surface-2 text-text"
-                      : "border-border bg-surface text-text-2 hover:bg-surface-2 hover:text-text"
-                  }`}
-                >
-                  {s.label}
-                  <span className="ml-1 tabular-nums text-text-3">({n})</span>
-                </button>
-              );
-            })}
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-6">
+          <div className="flex rounded-md border border-stone-200 bg-white p-0.5 shadow-sm">
+            {(
+              [
+                ["pending", "open", `Open · ${counts.open}`],
+                ["done", "done", `Done · ${counts.done}`],
+                ["all", "all", `All · ${total}`],
+              ] as const
+            ).map(([value, , label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatus(value)}
+                className={`rounded px-3 py-1.5 text-sm transition ${
+                  status === value
+                    ? "bg-stone-900 font-medium text-white"
+                    : "text-stone-500 hover:text-stone-900"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {tags.length > 0 && (
-            <select
-              value={tagId}
-              onChange={(e) => setTagId(e.target.value)}
-              className="h-9 rounded-btn border border-border-strong bg-surface px-3 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-              aria-label="Filtrar por tag"
-            >
-              <option value="">Todos los tags</option>
-              {tags.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+            <label className="relative flex items-center gap-1.5 rounded-md border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-600 shadow-sm transition hover:border-stone-300">
+              <span className="pointer-events-none max-w-[120px] truncate">
+                {tagFilterLabel}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-stone-400" />
+              <select
+                value={tagId}
+                onChange={(e) => setTagId(e.target.value)}
+                className="absolute inset-0 cursor-pointer opacity-0"
+                aria-label="Filter by tag"
+              >
+                <option value="">All tags</option>
+                {tags.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
         </div>
 
         {todos.length === 0 ? (
-          <EmptyState
-            title="No hay ítems con estos filtros."
-            help="Probá otro estado o tag."
-          />
-        ) : (
-          <div className="space-y-6">
-            {GROUP_ORDER.map((g) => {
-              const items = grouped[g];
-              if (items.length === 0) return null;
-              return (
-                <section key={g}>
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-3">
-                    {RECENCY_LABELS[g]}
-                  </h2>
-                  <ul className="divide-y divide-border rounded-card border border-border bg-surface">
-                    {items.map((t) => {
-                      const tag = primaryTag(t);
-                      return (
-                        <li
-                          key={t.id}
-                          className="flex items-center gap-3 px-4 py-3"
-                        >
-                          <Checkbox
-                            checked={t.checked}
-                            onChange={(e) => toggle(t.id, e.target.checked)}
-                          />
-                          <span
-                            className={`min-w-0 flex-1 text-sm ${
-                              t.checked ? "text-text-3 line-through" : "text-text"
-                            }`}
-                          >
-                            {t.text || (
-                              <span className="text-text-3">(ítem vacío)</span>
-                            )}
-                          </span>
-                          {tag && (
-                            <TagPill name={tag.name} color={tag.color} />
-                          )}
-                          <Link
-                            href={`/registros/${t.record.id}/editar`}
-                            className="shrink-0 text-xs tabular-nums text-text-2 hover:text-text"
-                          >
-                            {shortDate(t.record.date)} · {t.record.title}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              );
-            })}
+          <div className="rounded-md border border-dashed border-stone-300 px-6 py-12 text-center">
+            <p className="text-sm text-stone-500">No to-dos match these filters.</p>
+            <p className="mt-1 text-xs text-stone-400">Try another status or tag.</p>
           </div>
+        ) : (
+          TODO_BUCKET_ORDER.map((g) => {
+            const items = grouped[g];
+            if (items.length === 0) return null;
+            return (
+              <section key={g} className="mb-7">
+                <h2
+                  className={`mb-2 text-xs font-medium uppercase tracking-widest ${
+                    g === "overdue" ? "text-red-500" : "text-stone-400"
+                  }`}
+                >
+                  {TODO_BUCKET_LABELS[g]}
+                </h2>
+                <div className="divide-y divide-stone-100 rounded-md border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+                  {items.map((t) => {
+                    const tag = primaryTag(t);
+                    return (
+                      <div
+                        key={t.id}
+                        className="group flex items-center gap-3 px-3 py-3 md:px-4"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={t.checked}
+                          onChange={(e) => toggle(t.id, e.target.checked)}
+                          aria-label={t.text || "To-do item"}
+                          className="h-[18px] w-[18px] shrink-0 cursor-pointer appearance-none rounded-sm border-[1.5px] border-stone-300 transition checked:border-stone-900 checked:bg-stone-900 hover:border-stone-400"
+                        />
+                        <span
+                          className={`min-w-0 flex-1 truncate text-sm ${
+                            t.checked
+                              ? "text-stone-400 line-through"
+                              : "text-stone-800"
+                          }`}
+                        >
+                          {t.text || (
+                            <span className="text-stone-400">(empty item)</span>
+                          )}
+                        </span>
+                        <Link
+                          href={`/registros/${t.record.id}/editar`}
+                          className="hidden shrink-0 items-center gap-1 text-xs text-stone-400 opacity-0 transition hover:text-stone-700 group-hover:opacity-100 md:flex"
+                        >
+                          {t.record.title || "Untitled"} · {shortDate(t.record.date)}
+                          <ArrowUpRight className="h-3 w-3" />
+                        </Link>
+                        <span
+                          className={`shrink-0 transition ${
+                            t.dueDate
+                              ? "opacity-100"
+                              : "opacity-0 group-hover:opacity-100"
+                          }`}
+                        >
+                          <DueDateButton
+                            value={t.dueDate}
+                            onChange={(v) => void setDueDate(t.id, v)}
+                          />
+                        </span>
+
+                        
+
+                        {tag && (
+                          <span className="hidden shrink-0 sm:inline-flex">
+                            <TagPill name={tag.name} color={tag.color} size="sm" />
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })
         )}
       </div>
-    </main>
+    </div>
   );
 }

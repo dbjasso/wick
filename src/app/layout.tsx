@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,9 +8,16 @@ const inter = Inter({
   display: "swap",
 });
 
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-newsreader",
+  style: ["normal", "italic"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Trail",
-  description: "Diario personal de registros",
+  description: "Personal journal",
 };
 
 export default function RootLayout({
@@ -19,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full bg-bg font-sans text-text">{children}</body>
+    <html lang="en" className={`${inter.variable} ${newsreader.variable} h-full antialiased`}>
+      <body className="min-h-full bg-stone-50 font-sans text-stone-900">{children}</body>
     </html>
   );
 }
