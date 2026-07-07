@@ -12,6 +12,7 @@
     "db:push": "env -u DATABASE_URL -u DIRECT_URL -u ADMIN_EMAIL -u ADMIN_PASSWORD_HASH -u ADMIN_TOTP_SECRET prisma db push",
     "db:studio": "env -u DATABASE_URL -u DIRECT_URL -u ADMIN_EMAIL -u ADMIN_PASSWORD_HASH -u ADMIN_TOTP_SECRET prisma studio",
     "db:migrate": "env -u DATABASE_URL -u DIRECT_URL -u ADMIN_EMAIL -u ADMIN_PASSWORD_HASH -u ADMIN_TOTP_SECRET prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "hash-password": "tsx scripts/hash-password.ts",
     "totp:setup": "tsx scripts/totp-secret.ts",
     "postinstall": "prisma generate"

@@ -22,7 +22,10 @@ if [ -n "$MIGRATE_URL" ]; then
   export DIRECT_URL="$MIGRATE_URL"
   npx prisma migrate deploy
 else
-  echo "vercel-build: skip migrate deploy (set DIRECT_URL or connect Vercel Postgres)"
+  echo "vercel-build: ERROR — no valid postgres URL for migrations."
+  echo "  Supabase: set DIRECT_URL to the *direct* host (db.<ref>.supabase.co:5432), not the pooler."
+  echo "  Vercel Postgres: ensure POSTGRES_URL_NON_POOLING is linked, or set DIRECT_URL to its value."
+  exit 1
 fi
 
 npm run build
