@@ -6,7 +6,6 @@ const globalForPrisma = globalThis as unknown as {
   prismaFingerprint?: string;
 };
 
-const url = process.env.DATABASE_URL;
 // Bump when schema changes so dev hot-reload doesn't keep a stale PrismaClient.
 const SCHEMA_FINGERPRINT = "todo-dueDate-v2-explicit-url";
 
@@ -19,15 +18,29 @@ function createPrisma() {
   });
 }
 
-const cacheOk =
-  globalForPrisma.prisma &&
-  globalForPrisma.prismaUrl === url &&
-  globalForPrisma.prismaFingerprint === SCHEMA_FINGERPRINT;
+function getPrisma(): PrismaClient {
+  const url = process.env.DATABASE_URL;
+  const cacheOk =
+    globalForPrisma.prisma &&
+    globalForPrisma.prismaUrl === url &&
+    globalForPrisma.prismaFingerprint === SCHEMA_FINGERPRINT;
 
-export const prisma = cacheOk ? globalForPrisma.prisma! : createPrisma();
+  if (cacheOk) return globalForPrisma.prisma!;
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-  globalForPrisma.prismaUrl = url;
-  globalForPrisma.prismaFingerprint = SCHEMA_FINGERPRINT;
+  const client = createPrisma();
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = client;
+    globalForPrisma.prismaUrl = url;
+    globalForPrisma.prismaFingerprint = SCHEMA_FINGERPRINT;
+  }
+  return client;
 }
+
+// ponytail: lazy Proxy so `next build` can load route modules without DATABASE_URL.
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getPrisma();
+    const value = Reflect.get(client, prop, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});

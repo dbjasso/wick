@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "env -u DATABASE_URL -u DIRECT_URL -u ADMIN_EMAIL -u ADMIN_PASSWORD_HASH -u ADMIN_TOTP_SECRET next dev",
-    "build": "env -u DATABASE_URL -u DIRECT_URL -u ADMIN_EMAIL -u ADMIN_PASSWORD_HASH -u ADMIN_TOTP_SECRET next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write .",
