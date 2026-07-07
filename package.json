@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "env -u DATABASE_URL -u DIRECT_URL -u ADMIN_EMAIL -u ADMIN_PASSWORD_HASH -u ADMIN_TOTP_SECRET next dev",
     "build": "next build",
-    "vercel-build": "sh -c 'if [ -n \"$DIRECT_URL\" ]; then prisma migrate deploy; else echo \"ponytail: skip migrate deploy (DIRECT_URL unset)\"; fi' && next build",
+    "vercel-build": "sh scripts/vercel-build.sh",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write .",
