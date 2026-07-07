@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { missingRuntimeEnv, runtimeEnvStatus } from "@/lib/env-check";
+import {
+  missingMigrationEnv,
+  missingRuntimeEnv,
+  runtimeEnvStatus,
+} from "@/lib/env-check";
 
 // Health check: env vars requeridas + conexión a Postgres.
 export async function GET() {
   const env = runtimeEnvStatus();
   const missing = missingRuntimeEnv();
+  const missingForMigrations = missingMigrationEnv();
 
   let db = false;
   let dbError: string | undefined;
@@ -19,7 +24,14 @@ export async function GET() {
 
   const ok = missing.length === 0 && db;
   return NextResponse.json(
-    { ok, env, missing, db, dbError: db ? undefined : dbError },
+    {
+      ok,
+      env,
+      missing,
+      missingForMigrations,
+      db,
+      dbError: db ? undefined : dbError,
+    },
     { status: ok ? 200 : 503 },
   );
 }
