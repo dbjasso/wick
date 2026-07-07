@@ -5,6 +5,7 @@ import type { NextAuthConfig } from "next-auth";
 export const authConfig = {
   pages: { signIn: "/login" },
   providers: [],
+  trustHost: true,
   callbacks: {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;

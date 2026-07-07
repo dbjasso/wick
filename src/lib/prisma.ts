@@ -28,11 +28,11 @@ function getPrisma(): PrismaClient {
   if (cacheOk) return globalForPrisma.prisma!;
 
   const client = createPrisma();
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = client;
-    globalForPrisma.prismaUrl = url;
-    globalForPrisma.prismaFingerprint = SCHEMA_FINGERPRINT;
-  }
+  // Cache en prod también: serverless reusa la instancia; sin esto el Proxy
+  // creaba un PrismaClient nuevo en cada prisma.* del mismo request.
+  globalForPrisma.prisma = client;
+  globalForPrisma.prismaUrl = url;
+  globalForPrisma.prismaFingerprint = SCHEMA_FINGERPRINT;
   return client;
 }
 

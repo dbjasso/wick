@@ -1,17 +1,25 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { missingRuntimeEnv, runtimeEnvStatus } from "@/lib/env-check";
 
-// Health check: confirma que la app responde y que Postgres está alcanzable.
+// Health check: env vars requeridas + conexión a Postgres.
 export async function GET() {
+  const env = runtimeEnvStatus();
+  const missing = missingRuntimeEnv();
+
+  let db = false;
+  let dbError: string | undefined;
   try {
-    // $queryRaw devuelve un array; descartamos el resultado.
     await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({ ok: true, db: true });
+    db = true;
   } catch (err) {
+    dbError = err instanceof Error ? err.message : "unknown";
     console.error("[health] db error", err);
-    return NextResponse.json(
-      { ok: true, db: false, error: "database unavailable" },
-      { status: 503 },
-    );
   }
+
+  const ok = missing.length === 0 && db;
+  return NextResponse.json(
+    { ok, env, missing, db, dbError: db ? undefined : dbError },
+    { status: ok ? 200 : 503 },
+  );
 }
