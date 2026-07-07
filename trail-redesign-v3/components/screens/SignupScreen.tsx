@@ -31,7 +31,7 @@ export function SignupScreen({
         <div className="flex h-9 w-9 items-center justify-center rounded-md bg-stone-900 font-display text-lg text-white">
           T
         </div>
-        <span className="font-display text-2xl text-stone-900">Trail</span>
+        <span className="font-display text-2xl text-stone-900">paperTrail</span>
       </div>
 
       <div className="w-full max-w-sm rounded-md border border-stone-200/80 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.05)] md:p-8">

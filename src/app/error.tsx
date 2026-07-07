@@ -11,11 +11,13 @@ export default function Error({
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-stone-50 p-6 text-stone-900">
       <p className="text-lg font-medium">No se pudo cargar esta página</p>
       <p className="max-w-md text-center text-sm text-stone-600">
-        Suele ser configuración de Vercel o la base de datos. Revisa{" "}
+        Revisa{" "}
         <a href="/api/health" className="underline">
           /api/health
-        </a>{" "}
-        para ver qué falta.
+        </a>
+        . Si <code className="text-xs">schema</code> es false, falta aplicar
+        migraciones en prod (<code className="text-xs">prisma migrate deploy</code>
+        ).
       </p>
       {error.digest ? (
         <p className="text-xs text-stone-400">digest: {error.digest}</p>

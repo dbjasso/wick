@@ -33,7 +33,7 @@ export function Sidebar({
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-stone-900 font-display text-sm text-white">
           T
         </div>
-        <span className="text-[15px] font-semibold tracking-tight text-stone-900">Trail</span>
+        <span className="text-[15px] font-semibold tracking-tight text-stone-900">paperTrail</span>
       </div>
 
       <button

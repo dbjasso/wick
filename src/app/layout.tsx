@@ -16,7 +16,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Trail",
+  title: "paperTrail",
   description: "Personal journal",
 };
 
