@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "TodoItem" ADD COLUMN IF NOT EXISTS "dueDate" TIMESTAMP(3);

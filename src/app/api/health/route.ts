@@ -26,14 +26,29 @@ export async function GET() {
       ) AS "exists"
     `;
     schema = rows[0]?.exists ?? false;
+    if (schema) {
+      const cols = await prisma.$queryRaw<{ exists: boolean }[]>`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'TodoItem'
+            AND column_name = 'dueDate'
+        ) AS "exists"
+      `;
+      if (!cols[0]?.exists) {
+        schema = false;
+        schemaError =
+          'Columna TodoItem.dueDate falta — corre `npx prisma migrate deploy` contra prod.';
+      }
+    }
   } catch (err) {
     dbError = err instanceof Error ? err.message : "unknown";
     console.error("[health] db error", err);
   }
 
-  if (db && !schema) {
+  if (db && !schema && !schemaError) {
     schemaError =
-      'Tabla "Record" no existe — corre `npx prisma migrate deploy` contra prod (usa DIRECT_URL sin pooler).';
+      'Schema incompleto — corre `npx prisma migrate deploy` contra prod (usa DIRECT_URL sin pooler).';
   }
 
   const ok = missing.length === 0 && db && schema;
