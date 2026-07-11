@@ -202,56 +202,71 @@ export function PendientesView() {
                   {items.map((t) => {
                     const tag = primaryTag(t);
                     return (
-                      <div
+                      <Link
                         key={t.id}
-                        className="group flex items-center gap-3 px-3 py-3 md:px-4"
+                        href={`/registros/${t.record.id}/editar`}
+                        aria-label={`Open ${t.record.title || "Untitled"}: ${t.text || "to-do"}`}
+                        className="group flex gap-3 px-3 py-3 transition hover:bg-stone-50 md:items-center md:px-4"
                       >
                         <input
                           type="checkbox"
                           checked={t.checked}
+                          onClick={(e) => e.preventDefault()}
                           onChange={(e) => toggle(t.id, e.target.checked)}
                           aria-label={t.text || "To-do item"}
-                          className="h-[18px] w-[18px] shrink-0 cursor-pointer appearance-none rounded-sm border-[1.5px] border-stone-300 transition checked:border-stone-900 checked:bg-stone-900 hover:border-stone-400"
+                          className="mt-0.5 h-[18px] w-[18px] shrink-0 cursor-pointer appearance-none rounded-sm border-[1.5px] border-stone-300 transition checked:border-stone-900 checked:bg-stone-900 hover:border-stone-400 md:mt-0"
                         />
-                        <span
-                          className={`min-w-0 flex-1 truncate text-sm ${
-                            t.checked
-                              ? "text-stone-400 line-through"
-                              : "text-stone-800"
-                          }`}
-                        >
-                          {t.text || (
-                            <span className="text-stone-400">(empty item)</span>
+                        <div className="min-w-0 flex-1">
+                          <span
+                            className={`block truncate text-sm ${
+                              t.checked
+                                ? "text-stone-400 line-through"
+                                : "text-stone-800"
+                            }`}
+                          >
+                            {t.text || (
+                              <span className="text-stone-400">(empty item)</span>
+                            )}
+                          </span>
+                          {t.record.tags.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 md:hidden">
+                              {t.record.tags.map((tg) => (
+                                <TagPill
+                                  key={tg.id}
+                                  name={tg.name}
+                                  color={tg.color}
+                                  size="sm"
+                                />
+                              ))}
+                            </div>
                           )}
-                        </span>
-                        <Link
-                          href={`/registros/${t.record.id}/editar`}
-                          className="hidden shrink-0 items-center gap-1 text-xs text-stone-400 opacity-0 transition hover:text-stone-700 group-hover:opacity-100 md:flex"
-                        >
+                        </div>
+                        <span className="hidden shrink-0 items-center gap-1 text-xs text-stone-400 opacity-0 transition group-hover:opacity-100 md:flex">
                           {t.record.title || "Untitled"} · {shortDate(t.record.date)}
                           <ArrowUpRight className="h-3 w-3" />
-                        </Link>
+                        </span>
                         <span
                           className={`shrink-0 transition ${
                             t.dueDate
                               ? "opacity-100"
-                              : "opacity-0 group-hover:opacity-100"
+                              : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
                           }`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
                         >
                           <DueDateButton
                             value={t.dueDate}
                             onChange={(v) => void setDueDate(t.id, v)}
                           />
                         </span>
-
-                        
-
                         {tag && (
-                          <span className="hidden shrink-0 sm:inline-flex">
+                          <span className="hidden shrink-0 md:inline-flex">
                             <TagPill name={tag.name} color={tag.color} size="sm" />
                           </span>
                         )}
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>

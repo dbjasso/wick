@@ -25,9 +25,6 @@ export function AppShell({
         active={active}
         pendingCount={pendingCount}
         userName={userNameFromEmail(email)}
-        onNavigate={(key) => router.push(NAV_ROUTES[key])}
-        onNewEntry={() => router.push("/registros/nuevo")}
-        onAccount={() => router.push("/account")}
         onLogout={() => signOut({ redirectTo: "/login" })}
       />
       <div className="flex min-w-0 flex-1 flex-col pb-20 md:pb-0">{children}</div>

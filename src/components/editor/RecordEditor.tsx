@@ -189,7 +189,7 @@ export function RecordEditor({
 
   const back = async () => {
     await flush();
-    router.push("/");
+    router.back();
   };
 
   const deleteRecord = async () => {

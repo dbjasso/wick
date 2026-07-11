@@ -17,6 +17,7 @@ function renderMarks(text: string, marks?: Mark[]): React.ReactNode {
     if (m.type === "bold") node = <strong>{node}</strong>;
     else if (m.type === "italic") node = <em>{node}</em>;
     else if (m.type === "underline") node = <u>{node}</u>;
+    else if (m.type === "strike") node = <s>{node}</s>;
     else if (m.type === "code")
       node = (
         <code className="rounded bg-surface-2 px-1 text-[0.9em]">{node}</code>
@@ -65,6 +66,16 @@ function NodeView({
           {kids}
         </blockquote>
       );
+    case "codeBlock":
+      return (
+        <pre className="overflow-x-auto rounded-md bg-surface-2 p-3 text-sm">
+          <code>{kids}</code>
+        </pre>
+      );
+    case "horizontalRule":
+      return <hr className="border-border" />;
+    case "hardBreak":
+      return <br />;
     case "taskList":
       return <ul className="space-y-1.5">{kids}</ul>;
     case "taskItem": {

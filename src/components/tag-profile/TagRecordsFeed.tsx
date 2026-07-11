@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckSquare } from "lucide-react";
-import { previewSegments, previewText } from "@/lib/tiptap-text";
+import { ArrowUpRight } from "lucide-react";
 import { dayGroupLabel, dayKeyFromIso } from "@/lib/date-labels";
 import { formatTime } from "@/lib/timezone";
+import { RecordContent } from "./RecordContent";
 
 type FeedRecord = {
   id: string;
@@ -67,6 +67,30 @@ export function TagRecordsFeed({
     return () => obs.disconnect();
   }, [cursor, done, load, loadingMore]);
 
+  async function toggleTodo(todoId: string, checked: boolean) {
+    setRecords((rs) =>
+      rs.map((r) => ({
+        ...r,
+        todoItems: r.todoItems.map((t) => (t.id === todoId ? { ...t, checked } : t)),
+      })),
+    );
+    const res = await fetch(`/api/todos/${todoId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checked }),
+    });
+    if (!res.ok) {
+      setRecords((rs) =>
+        rs.map((r) => ({
+          ...r,
+          todoItems: r.todoItems.map((t) =>
+            t.id === todoId ? { ...t, checked: !checked } : t,
+          ),
+        })),
+      );
+    }
+  }
+
   const groups = useMemo(() => {
     const out = new Map<string, FeedRecord[]>();
     for (const r of records) {
@@ -94,47 +118,30 @@ export function TagRecordsFeed({
             {dayGroupLabel(dateKey)}
           </h2>
           <div className="flex flex-col gap-2">
-            {groupRecords.map((r) => {
-              const { title, segments } = previewSegments(r.content);
-              const excerpt =
-                segments
-                  .slice(0, 4)
-                  .map((s) => s.text.replace(/^☐ /, ""))
-                  .join(" · ") || previewText(r.content, 140);
-              const todosDone = r.todoItems.filter((t) => t.checked).length;
-              const todosTotal = r.todoItems.length;
-
-              return (
-                <Link
-                  key={r.id}
-                  href={`/registros/${r.id}/editar`}
-                  className="group rounded-md border border-stone-200/80 bg-white p-4 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-stone-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.05)]"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-baseline gap-2.5">
-                      <span className="shrink-0 text-xs tabular-nums text-stone-400">
-                        {formatTime(r.date)}
-                      </span>
-                      <h3 className="truncate font-display text-[16px] text-stone-900">
-                        {title || "Untitled"}
-                      </h3>
-                    </div>
-                    <ArrowUpRight className="h-4 w-4 shrink-0 text-stone-300 opacity-0 transition group-hover:opacity-100" />
-                  </div>
-                  {excerpt && (
-                    <p className="mt-1 line-clamp-2 pl-[42px] text-sm text-stone-500">
-                      {excerpt}
-                    </p>
-                  )}
-                  {todosTotal > 0 && (
-                    <span className="ml-[42px] mt-2 inline-flex items-center gap-1 rounded bg-stone-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-stone-600">
-                      <CheckSquare className="h-3 w-3" />
-                      {todosDone}/{todosTotal}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+            {groupRecords.map((r) => (
+              <article
+                key={r.id}
+                className="rounded-md border border-stone-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-xs tabular-nums text-stone-400">
+                    {formatTime(r.date)}
+                  </span>
+                  <Link
+                    href={`/registros/${r.id}/editar`}
+                    className="rounded p-1 text-stone-300 transition hover:bg-stone-100 hover:text-stone-600"
+                    aria-label="Open entry"
+                  >
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                </div>
+                <RecordContent
+                  content={r.content}
+                  todoItems={r.todoItems}
+                  onTodoToggle={(todoId, checked) => void toggleTodo(todoId, checked)}
+                />
+              </article>
+            ))}
           </div>
         </section>
       ))}
