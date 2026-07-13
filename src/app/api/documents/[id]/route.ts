@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import { getStream, remove, getUrl } from "@/lib/storage";
+import { documentForAccount } from "@/lib/account-scope";
 import { Readable } from "node:stream";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id } = await params;
-  const doc = await prisma.document.findUnique({ where: { id } });
+  const doc = await documentForAccount(id, accountId);
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const stream = Readable.toWeb(getStream(doc.url)) as ReadableStream<Uint8Array>;
@@ -30,11 +33,13 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id } = await params;
-  const doc = await prisma.document.findUnique({ where: { id } });
+  const doc = await documentForAccount(id, accountId);
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await remove(doc.url).catch((e) => console.error("[documents] remove file", e));

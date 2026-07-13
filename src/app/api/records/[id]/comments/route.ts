@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import { createCommentSchema } from "@/lib/schemas";
+import { recordForAccount } from "@/lib/account-scope";
 
 // POST /api/records/:id/comments — agregar un comentario al registro.
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id: recordId } = await params;
 
-  const record = await prisma.record.findUnique({ where: { id: recordId } });
+  const record = await recordForAccount(recordId, accountId);
   if (!record) return NextResponse.json({ error: "Record not found" }, { status: 404 });
 
   let body: unknown;

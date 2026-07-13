@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Tag, CheckSquare, Search, Plus, LogOut } from "lucide-react";
+import { Home, Tag, CheckSquare, Search, Plus, LogOut, Users } from "lucide-react";
 import { TagPill } from "@/components/ui/TagPill";
 import { NAV_ROUTES, type NavKey } from "@/lib/nav";
 
@@ -20,11 +20,13 @@ export function Sidebar({
   active = "home",
   pendingCount = 0,
   userName = "you",
+  isAdmin = false,
   onLogout,
 }: {
   active?: NavKey;
   pendingCount?: number;
   userName?: string;
+  isAdmin?: boolean;
   onLogout?: () => void;
 }) {
   const path = usePathname();
@@ -108,6 +110,22 @@ export function Sidebar({
             </div>
           );
         })}
+        {isAdmin && (
+          <Link
+            href="/admin/accounts"
+            aria-current={path.startsWith("/admin") ? "page" : undefined}
+            className={`group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition ${
+              path.startsWith("/admin")
+                ? "bg-stone-200/60 font-medium text-stone-900"
+                : "text-stone-600 hover:bg-stone-200/40 hover:text-stone-900"
+            }`}
+          >
+            <Users
+              className={`h-4 w-4 ${path.startsWith("/admin") ? "text-stone-900" : "text-stone-400 group-hover:text-stone-600"}`}
+            />
+            <span className="flex-1 text-left">Accounts</span>
+          </Link>
+        )}
       </nav>
 
       <div className="flex-1" />

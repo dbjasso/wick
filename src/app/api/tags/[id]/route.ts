@@ -1,20 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import { patchTagSchema } from "@/lib/schemas";
 import { remove } from "@/lib/storage";
+import { tagForAccount } from "@/lib/account-scope";
 
 // GET /api/tags/:id — perfil del tag (descripción, contactos, fechas, docs).
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id } = await params;
-  const tag = await prisma.tag.findUnique({
-    where: { id },
+  const tag = await prisma.tag.findFirst({
+    where: { id, accountId },
     include: {
       contacts: true,
       importantDates: true,
@@ -31,9 +34,11 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id } = await params;
   let body: unknown;
   try {
@@ -45,6 +50,18 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation", details: parsed.error.flatten() }, { status: 400 });
   }
+  const existing = await tagForAccount(id, accountId);
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (parsed.data.name !== undefined) {
+    const clash = await prisma.tag.findFirst({
+      where: { accountId, name: parsed.data.name, NOT: { id } },
+    });
+    if (clash) {
+      return NextResponse.json({ error: "Ya existe un tag con ese nombre." }, { status: 409 });
+    }
+  }
+
   const tag = await prisma.tag.update({
     where: { id },
     data: {
@@ -52,8 +69,7 @@ export async function PATCH(
       ...(parsed.data.color !== undefined && { color: parsed.data.color }),
       ...(parsed.data.description !== undefined && { description: parsed.data.description }),
     },
-  }).catch(() => null);
-  if (!tag) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  });
   return NextResponse.json(tag);
 }
 
@@ -63,12 +79,14 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id } = await params;
-  const tag = await prisma.tag.findUnique({
-    where: { id },
+  const tag = await prisma.tag.findFirst({
+    where: { id, accountId },
     include: { documents: true },
   });
   if (!tag) return NextResponse.json({ error: "Not found" }, { status: 404 });

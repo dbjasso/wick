@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import {
   patchTaskItemChecked,
   patchTaskItemDueDate,
   dueDateToDb,
 } from "@/lib/todos";
+import { todoForAccount } from "@/lib/account-scope";
 
 const patchSchema = z
   .object({
     checked: z.boolean().optional(),
-    // "YYYY-MM-DD" para fijar la fecha, null para quitarla.
     dueDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -22,16 +22,16 @@ const patchSchema = z
     message: "Nothing to update",
   });
 
-// PATCH /api/todos/:id — actualiza checked y/o dueDate. Mantiene sincronizado el
-// nodo taskItem dentro del content JSON del registro, para que el editor muestre
-// lo mismo que la lista global de To-dos.
+// PATCH /api/todos/:id — actualiza checked y/o dueDate.
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id } = await params;
   let body: unknown;
   try {
@@ -45,10 +45,9 @@ export async function PATCH(
   }
   const { checked, dueDate } = parsed.data;
 
-  const todo = await prisma.todoItem.findUnique({ where: { id } });
+  const todo = await todoForAccount(id, accountId);
   if (!todo) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Parchear el content del registro (checked y/o dueDate) y persistirlo.
   const record = await prisma.record.findUnique({ where: { id: todo.recordId } });
   if (record) {
     let content: unknown = record.content;

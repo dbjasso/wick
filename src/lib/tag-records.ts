@@ -3,9 +3,9 @@ import { encodeRecordCursor } from "@/lib/record-cursor";
 
 const PAGE = 20;
 
-export async function fetchTagRecordsPage(tagId: string, limit = PAGE) {
+export async function fetchTagRecordsPage(tagId: string, accountId: string, limit = PAGE) {
   const items = await prisma.record.findMany({
-    where: { tags: { some: { id: tagId } } },
+    where: { accountId, tags: { some: { id: tagId } } },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
     include: {

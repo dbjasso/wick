@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { ensureBootstrapAdmin } from "../src/lib/bootstrap-admin";
 
 const prisma = new PrismaClient();
 
@@ -20,19 +21,25 @@ function taskItem(nodeId: string, text: string, checked: boolean) {
 }
 
 async function main() {
-  // Limpieza en orden de dependencias para que el seed sea re-ejecutable.
-  await prisma.comment.deleteMany();
-  await prisma.todoItem.deleteMany();
-  await prisma.document.deleteMany();
-  await prisma.importantDate.deleteMany();
-  await prisma.contact.deleteMany();
-  await prisma.record.deleteMany();
-  await prisma.tag.deleteMany();
+  await ensureBootstrapAdmin();
 
-  // Tags. "acme" lleva descripción, contacto y fecha importante (perfil rico).
+  const account =
+    (await prisma.account.findFirst({ where: { name: "Seed" } })) ??
+    (await prisma.account.create({ data: { name: "Seed" } }));
+
+  // Limpieza en orden de dependencias para que el seed sea re-ejecutable.
+  await prisma.comment.deleteMany({ where: { record: { accountId: account.id } } });
+  await prisma.todoItem.deleteMany({ where: { record: { accountId: account.id } } });
+  await prisma.document.deleteMany({ where: { tag: { accountId: account.id } } });
+  await prisma.importantDate.deleteMany({ where: { tag: { accountId: account.id } } });
+  await prisma.contact.deleteMany({ where: { tag: { accountId: account.id } } });
+  await prisma.record.deleteMany({ where: { accountId: account.id } });
+  await prisma.tag.deleteMany({ where: { accountId: account.id } });
+
   const trabajo = await prisma.tag.create({
     data: {
       name: "trabajo",
+      accountId: account.id,
       description: "Temas laborales y proyectos.",
       contacts: {
         create: [
@@ -47,16 +54,16 @@ async function main() {
     },
   });
 
-  const personal = await prisma.tag.create({ data: { name: "personal" } });
-  const lectura = await prisma.tag.create({ data: { name: "lectura" } });
+  const personal = await prisma.tag.create({ data: { name: "personal", accountId: account.id } });
+  const lectura = await prisma.tag.create({ data: { name: "lectura", accountId: account.id } });
 
   const today = new Date();
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
-  // Registro 1 (hoy) con checklist: 2 ítems, uno marcado y otro no.
   const r1 = await prisma.record.create({
     data: {
       date: today,
+      accountId: account.id,
       content: {
         type: "doc",
         content: [
@@ -74,7 +81,6 @@ async function main() {
     },
   });
 
-  // TodoItems indexados para el registro 1 (espejo del checklist del JSON).
   await prisma.todoItem.createMany({
     data: [
       { recordId: r1.id, nodeId: "todo-r1-1", text: "Revisar contrato con Lucía", checked: true },
@@ -82,10 +88,10 @@ async function main() {
     ],
   });
 
-  // Registro 2 (ayer), texto simple con dos tags.
   await prisma.record.create({
     data: {
       date: yesterday,
+      accountId: account.id,
       content: {
         type: "doc",
         content: [textParagraph("Notas de la lectura del fin de semana. Pendiente retomar el capítulo 4.")],
@@ -94,10 +100,10 @@ async function main() {
     },
   });
 
-  // Registro 3 (hoy), un comentario de seguimiento.
   const r3 = await prisma.record.create({
     data: {
       date: today,
+      accountId: account.id,
       content: {
         type: "doc",
         content: [textParagraph("Reunión 1:1 con Lucía — definir próximos pasos del contrato.")],

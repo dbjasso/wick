@@ -5,7 +5,7 @@ export type TagInput = string | { name: string; color?: string | null; descripti
 // Sincroniza los tags de un registro a exactamente el conjunto dado. Acepta
 // nombres sueltos o { name, color?, description? }. El color/descripción sólo se
 // aplica al CREAR un tag nuevo; los existentes conservan sus valores.
-export async function syncRecordTags(recordId: string, tags: TagInput[]) {
+export async function syncRecordTags(recordId: string, tags: TagInput[], accountId: string) {
   const norm = tags.map((t) =>
     typeof t === "string"
       ? { name: t }
@@ -14,9 +14,10 @@ export async function syncRecordTags(recordId: string, tags: TagInput[]) {
   const upserted = await Promise.all(
     norm.map(({ name, color, description }) =>
       prisma.tag.upsert({
-        where: { name },
+        where: { accountId_name: { accountId, name } },
         create: {
           name,
+          accountId,
           ...(color ? { color } : {}),
           ...(description ? { description } : {}),
         },

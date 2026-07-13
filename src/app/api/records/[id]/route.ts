@@ -1,21 +1,28 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import { updateRecordSchema } from "@/lib/schemas";
 import { syncRecordTags } from "@/lib/records";
 import { repairTaskItemNodeIds, syncTodoItems } from "@/lib/todos";
 import { sanitizeContent } from "@/lib/sanitize";
+import { recordForAccount } from "@/lib/account-scope";
 
 // GET /api/records/:id
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id } = await params;
-  const record = await prisma.record.findUnique({
+  const record = await recordForAccount(id, accountId);
+  if (!record) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const full = await prisma.record.findUnique({
     where: { id },
     include: {
       tags: true,
@@ -23,10 +30,7 @@ export async function GET(
       todoItems: true,
     },
   });
-  if (!record) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  return NextResponse.json(record);
+  return NextResponse.json(full);
 }
 
 // PATCH /api/records/:id — update parcial (content, date y/o tags).
@@ -35,9 +39,11 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id } = await params;
   let body: unknown;
   try {
@@ -51,7 +57,7 @@ export async function PATCH(
   }
   const { date, content, tags } = parsed.data;
 
-  const existing = await prisma.record.findUnique({ where: { id } });
+  const existing = await recordForAccount(id, accountId);
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -71,7 +77,7 @@ export async function PATCH(
     await syncTodoItems(id, safeContent);
   }
   if (tags !== undefined) {
-    await syncRecordTags(id, tags);
+    await syncRecordTags(id, tags, accountId);
   }
 
   const fresh = await prisma.record.findUnique({
@@ -86,14 +92,16 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id } = await params;
-  try {
-    await prisma.record.delete({ where: { id } });
-  } catch {
+  const existing = await recordForAccount(id, accountId);
+  if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  await prisma.record.delete({ where: { id } });
   return new NextResponse(null, { status: 204 });
 }

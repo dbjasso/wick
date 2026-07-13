@@ -27,6 +27,8 @@ export function LoginForm({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
     setPending(false);
     if (result?.ok) {
+      // Admin sin cuenta → /admin/accounts (proxy también redirige desde /).
+      // No leemos la sesión acá: el proxy decide con role del JWT.
       router.push("/");
       router.refresh();
       return;

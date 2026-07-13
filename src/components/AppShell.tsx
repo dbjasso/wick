@@ -10,10 +10,12 @@ export function AppShell({
   children,
   email,
   pendingCount = 0,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
   email?: string | null;
   pendingCount?: number;
+  isAdmin?: boolean;
 }) {
   const path = usePathname();
   const router = useRouter();
@@ -25,6 +27,7 @@ export function AppShell({
         active={active}
         pendingCount={pendingCount}
         userName={userNameFromEmail(email)}
+        isAdmin={isAdmin}
         onLogout={() => signOut({ redirectTo: "/login" })}
       />
       <div className="flex min-w-0 flex-1 flex-col pb-20 md:pb-0">{children}</div>

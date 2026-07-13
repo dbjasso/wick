@@ -60,3 +60,20 @@ export const createImportantDateSchema = z.object({
 export const createCommentSchema = z.object({
   content: z.string().min(1).max(2000),
 });
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(8).max(128),
+    confirmPassword: z.string().min(1),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  });
+
+export const createAccountSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(8).max(128),
+  name: z.string().trim().max(100).optional(),
+});

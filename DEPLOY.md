@@ -69,9 +69,11 @@ directa. Si pasa, crea una segunda env var `DIRECT_URL` sin pooler y úsala en
 
 ### Seed (opcional)
 
-La app es de un solo usuario definido por env vars (`ADMIN_EMAIL` /
-`ADMIN_PASSWORD_HASH`), así que **no necesita seed** para arrancar. Si querés
-datos de ejemplo, corré una vez contra prod:
+`ADMIN_EMAIL` y `ADMIN_PASSWORD_HASH` crean el **admin de plataforma** en DB al
+primer login (si aún no hay ningún usuario ADMIN). Los **usuarios de cuenta**
+(MEMBER) se crean desde `/admin/accounts` después de iniciar sesión como admin.
+
+Para datos de ejemplo del journal, corré una vez contra prod:
 
 ```bash
 DATABASE_URL="<prod>" npx prisma db seed
@@ -89,8 +91,8 @@ variable de `.env.example` (los valores de prod, no los locales):
 | `DATABASE_URL` | URL de Neon/Vercel Postgres | del paso 2 |
 | `NEXTAUTH_URL` | `https://<tu-dominio>.vercel.app` | NextAuth la usa para callbacks |
 | `NEXTAUTH_SECRET` | `openssl rand -base64 32` | generar uno nuevo, no reuses el local |
-| `ADMIN_EMAIL` | tu email de admin | usuario único |
-| `ADMIN_PASSWORD_HASH` | base64 del hash bcrypt | ver abajo |
+| `ADMIN_EMAIL` | tu email de admin | bootstrap del primer ADMIN en DB |
+| `ADMIN_PASSWORD_HASH` | base64 del hash bcrypt | bootstrap del primer ADMIN |
 | `ADMIN_TOTP_SECRET` | base32 del secret 2FA | **opcional** — ver abajo |
 | `BLOB_READ_WRITE_TOKEN` | token de Vercel Blob | **solo si migrás storage** (paso 5) |
 

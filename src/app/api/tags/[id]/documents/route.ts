@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import { upload, UploadError } from "@/lib/storage";
+import { tagForAccount } from "@/lib/account-scope";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id: tagId } = await params;
 
-  const tag = await prisma.tag.findUnique({ where: { id: tagId } });
+  const tag = await tagForAccount(tagId, accountId);
   if (!tag) return NextResponse.json({ error: "Tag not found" }, { status: 404 });
 
   const form = await req.formData();

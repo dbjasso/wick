@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import { createTagSchema } from "@/lib/schemas";
 
 // GET /api/tags — listado con conteo de registros.
 export async function GET() {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const tags = await prisma.tag.findMany({
+    where: { accountId },
     orderBy: { name: "asc" },
     include: { _count: { select: { records: true } } },
   });
@@ -17,9 +20,11 @@ export async function GET() {
 
 // POST /api/tags — crear tag con nombre y color.
 export async function POST(request: Request) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   let body: unknown;
   try {
     body = await request.json();
@@ -31,12 +36,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Validation", details: parsed.error.flatten() }, { status: 400 });
   }
   const { name, color, description } = parsed.data;
-  const existing = await prisma.tag.findUnique({ where: { name } });
+  const existing = await prisma.tag.findUnique({
+    where: { accountId_name: { accountId, name } },
+  });
   if (existing) {
     return NextResponse.json({ error: "Ya existe un tag con ese nombre." }, { status: 409 });
   }
   const tag = await prisma.tag.create({
-    data: { name, color, description },
+    data: { name, color, description, accountId },
     include: { _count: { select: { records: true } } },
   });
   return NextResponse.json(tag, { status: 201 });

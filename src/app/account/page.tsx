@@ -1,16 +1,24 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/AppShell";
 import { AccountView } from "@/components/AccountView";
+import { getJournalAccountId, pendingTodosWhere } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const session = await auth();
-  const pendingCount = await prisma.todoItem.count({ where: { checked: false } });
+  const accountId = await getJournalAccountId();
+  if (!accountId) redirect("/admin/accounts");
+  const pendingCount = await prisma.todoItem.count({ where: pendingTodosWhere(accountId) });
 
   return (
-    <AppShell email={session?.user?.email} pendingCount={pendingCount}>
+    <AppShell
+      email={session?.user?.email}
+      pendingCount={pendingCount}
+      isAdmin={session?.user?.role === "ADMIN"}
+    >
       <AccountView email={session?.user?.email} />
     </AppShell>
   );

@@ -1,9 +1,10 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/AppShell";
 import { TagProfile } from "@/components/TagProfile";
 import { fetchTagRecordsPage } from "@/lib/tag-records";
+import { getJournalAccountId, pendingTodosWhere } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +14,14 @@ export default async function TagProfilePage({
   params: Promise<{ tag: string }>;
 }) {
   const session = await auth();
+  const accountId = await getJournalAccountId();
+  if (!accountId) redirect("/admin/accounts");
   const { tag: rawName } = await params;
   const name = decodeURIComponent(rawName);
 
   const [tag, pendingCount] = await Promise.all([
     prisma.tag.findUnique({
-      where: { name },
+      where: { accountId_name: { accountId, name } },
       include: {
         contacts: true,
         importantDates: true,
@@ -26,22 +29,26 @@ export default async function TagProfilePage({
         _count: { select: { records: true } },
       },
     }),
-    prisma.todoItem.count({ where: { checked: false } }),
+    prisma.todoItem.count({ where: pendingTodosWhere(accountId) }),
   ]);
 
   if (!tag) notFound();
 
   const [lastRecord, initialFeed] = await Promise.all([
     prisma.record.findFirst({
-      where: { tags: { some: { id: tag.id } } },
+      where: { accountId, tags: { some: { id: tag.id } } },
       orderBy: { createdAt: "desc" },
       select: { createdAt: true },
     }),
-    fetchTagRecordsPage(tag.id),
+    fetchTagRecordsPage(tag.id, accountId),
   ]);
 
   return (
-    <AppShell email={session?.user?.email} pendingCount={pendingCount}>
+    <AppShell
+      email={session?.user?.email}
+      pendingCount={pendingCount}
+      isAdmin={session?.user?.role === "ADMIN"}
+    >
       <TagProfile
         tag={{
           id: tag.id,

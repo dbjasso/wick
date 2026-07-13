@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { RecordEditor, type RecordData } from "@/components/editor/RecordEditor";
+import { getJournalAccountId } from "@/lib/session";
 
 export const metadata = { title: "Editar registro" };
 export const dynamic = "force-dynamic";
@@ -10,9 +11,11 @@ export default async function EditarRegistroPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const accountId = await getJournalAccountId();
+  if (!accountId) redirect("/admin/accounts");
   const { id } = await params;
-  const record = await prisma.record.findUnique({
-    where: { id },
+  const record = await prisma.record.findFirst({
+    where: { id, accountId },
     include: { tags: true, comments: { orderBy: { createdAt: "asc" } } },
   });
   if (!record) notFound();

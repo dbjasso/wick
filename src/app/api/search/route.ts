@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import { previewSegments } from "@/lib/tiptap-text";
 
 const querySchema = z.object({
@@ -11,8 +11,6 @@ const querySchema = z.object({
   tagId: z.string().optional(),
 });
 
-// Encuentra la primera coincidencia (case-insensitive) y devuelve un snippet
-// centrado en ella con el rango a resaltar, relativo al snippet.
 function snippet(text: string, q: string, radius = 60) {
   const idx = text.toLowerCase().indexOf(q.toLowerCase());
   if (idx === -1) return null;
@@ -26,9 +24,11 @@ function snippet(text: string, q: string, radius = 60) {
 
 // GET /api/search?q=&type=all|records|todos&tagId=
 export async function GET(request: Request) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const url = new URL(request.url);
   const parsed = querySchema.safeParse({
     q: url.searchParams.get("q") ?? "",
@@ -45,20 +45,16 @@ export async function GET(request: Request) {
   const wantRecords = type === "all" || type === "records";
   const wantTodos = type === "all" || type === "todos";
 
-  // ponytail: sin full-text search. Acotamos registros con un ILIKE sobre
-  // content::text (raw) y luego filtramos/armamos snippet en JS sobre texto
-  // plano. Ceiling: escaneo secuencial y match aproximado (matchea claves JSON).
-  // Upgrade: columna tsvector con GIN o una columna `plainText` materializada.
   let records: Array<{ id: string; date: string; title: string; snippet: ReturnType<typeof snippet>; tags: { id: string; name: string; color: string | null }[] }> = [];
   if (wantRecords) {
     const like = `%${q}%`;
     const idRows = await prisma.$queryRaw<{ id: string }[]>(
-      Prisma.sql`SELECT "id" FROM "Record" WHERE "content"::text ILIKE ${like} LIMIT 100`,
+      Prisma.sql`SELECT "id" FROM "Record" WHERE "content"::text ILIKE ${like} AND "accountId" = ${accountId} LIMIT 100`,
     );
     const ids = idRows.map((r) => r.id);
     if (ids.length) {
       const rows = await prisma.record.findMany({
-        where: { id: { in: ids }, ...tagFilter },
+        where: { id: { in: ids }, accountId, ...tagFilter },
         include: { tags: true },
         orderBy: { date: "desc" },
       });
@@ -86,7 +82,7 @@ export async function GET(request: Request) {
     const rows = await prisma.todoItem.findMany({
       where: {
         text: { contains: q, mode: "insensitive" },
-        ...(tagId ? { record: tagFilter } : {}),
+        record: { accountId, ...(tagId ? tagFilter : {}) },
       },
       include: { record: { include: { tags: true } } },
       orderBy: [{ record: { date: "desc" } }, { updatedAt: "desc" }],

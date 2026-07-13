@@ -5,18 +5,10 @@ import { authConfig } from "@/auth.config";
 import { ipFromHeaders } from "@/lib/get-ip";
 import { rateLimit, recordFailed } from "@/lib/auth-rate-limit";
 import { base32Decode, verifyTotp } from "@/lib/totp";
+import { prisma } from "@/lib/prisma";
+import { ensureBootstrapAdmin } from "@/lib/bootstrap-admin";
 
-// ponytail: leer env en cada authorize(), no a nivel de módulo. Turbopack
-// compila auth.ts en bundles distintos (RSC vs route); cachear el hash al
-// import rompe el login del form cuando cambia ADMIN_PASSWORD_HASH sin restart.
-function adminFromEnv() {
-  const email = process.env.ADMIN_EMAIL;
-  const hashB64 = process.env.ADMIN_PASSWORD_HASH;
-  const passwordHash = hashB64
-    ? Buffer.from(hashB64, "base64").toString("utf8")
-    : "";
-  return { email, passwordHash };
-}
+const bootstrapOnce = ensureBootstrapAdmin();
 
 function totpSecretFromEnv() {
   const b32 = process.env.ADMIN_TOTP_SECRET?.replace(/\s/g, "") ?? "";
@@ -34,9 +26,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
         totp: { label: "Código 2FA", type: "text" },
       },
-      // Rate limiting vive acá (punto único): cubre el form Y llamadas
-      // directas al callback de NextAuth.
       async authorize(credentials, request) {
+        await bootstrapOnce;
+
         const ip = ipFromHeaders(
           (request?.headers ?? {}) as { get(name: string): string | null },
         );
@@ -45,37 +37,64 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const { email: adminEmail, passwordHash } = adminFromEnv();
-        if (!adminEmail || !passwordHash) return null;
         const email = credentials?.email;
         const password = credentials?.password;
         if (typeof email !== "string" || typeof password !== "string") {
           return null;
         }
-        if (email.trim() !== adminEmail) {
+
+        const user = await prisma.user.findUnique({
+          where: { email: email.trim() },
+        });
+        if (!user) {
           recordFailed(ip);
           console.warn(`[auth] login fail email incorrecto ip=${ip}`);
           return null;
         }
-        const ok = await bcrypt.compare(password, passwordHash);
+
+        const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) {
           recordFailed(ip);
           console.warn(`[auth] login fail password incorrecto ip=${ip}`);
           return null;
         }
-        // 2FA: si hay secret configurado, exigir código TOTP válido.
-        const totpSecret = totpSecretFromEnv();
-        if (totpSecret) {
-          const totp = credentials?.totp;
-          if (typeof totp !== "string" || !verifyTotp(totp.trim(), totpSecret)) {
-            // No sumamos al rate limit de password (factor separado), pero logueamos.
-            console.warn(`[auth] login fail TOTP incorrecto ip=${ip}`);
-            return null;
+
+        if (user.role === "ADMIN") {
+          const totpSecret = totpSecretFromEnv();
+          if (totpSecret) {
+            const totp = credentials?.totp;
+            if (typeof totp !== "string" || !verifyTotp(totp.trim(), totpSecret)) {
+              console.warn(`[auth] login fail TOTP incorrecto ip=${ip}`);
+              return null;
+            }
           }
         }
-        return { id: adminEmail, email: adminEmail };
+
+        return {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          accountId: user.accountId,
+          mustChangePassword: user.mustChangePassword,
+        };
       },
     }),
   ],
+  callbacks: {
+    ...authConfig.callbacks,
+    async jwt(params) {
+      // Reusa el jwt de auth.config (user → token) y aplica updates de sesión.
+      const base = authConfig.callbacks.jwt;
+      const token =
+        typeof base === "function" ? await base(params) : params.token;
+      const { trigger, session } = params;
+      if (trigger === "update" && session && typeof session === "object") {
+        const s = session as { mustChangePassword?: boolean };
+        if (s.mustChangePassword === false) {
+          token.mustChangePassword = false;
+        }
+      }
+      return token;
+    },
+  },
 });
-

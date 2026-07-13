@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import { previewSegments } from "@/lib/tiptap-text";
 import { repairTodoDueDates } from "@/lib/todos";
 
@@ -10,15 +10,19 @@ const querySchema = z.object({
   tagId: z.string().optional(),
 });
 
-function recordWhere(tagId?: string) {
-  return tagId ? { record: { tags: { some: { id: tagId } } } } : {};
+function recordWhere(accountId: string, tagId?: string) {
+  return tagId
+    ? { record: { accountId, tags: { some: { id: tagId } } } }
+    : { record: { accountId } };
 }
 
 // GET /api/todos?status=pending|done|all&tagId=...
 export async function GET(request: Request) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const url = new URL(request.url);
   const parsed = querySchema.safeParse({
     status: url.searchParams.get("status") ?? undefined,
@@ -28,11 +32,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 });
   }
   const { status, tagId } = parsed.data;
-  const tagFilter = recordWhere(tagId);
+  const tagFilter = recordWhere(accountId, tagId);
 
   const where: {
     checked?: boolean;
-    record?: { tags?: { some: { id: string } } };
+    record?: { accountId: string; tags?: { some: { id: string } } };
   } = { ...tagFilter };
   if (status === "pending") where.checked = false;
   else if (status === "done") where.checked = true;
@@ -52,7 +56,6 @@ export async function GET(request: Request) {
     prisma.todoItem.count({ where: { ...tagFilter } }),
   ]);
 
-  // Rellena dueDate faltante desde el JSON del registro (datos previos al fix).
   const staleIds = todos.filter((t) => !t.dueDate).map((t) => t.id);
   if (staleIds.length) {
     await repairTodoDueDates([...new Set(todos.filter((t) => !t.dueDate).map((t) => t.recordId))]);

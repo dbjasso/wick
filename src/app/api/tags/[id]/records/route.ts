@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { accountIdFrom, requireAccountSession } from "@/lib/session";
 import { encodeRecordCursor, parseRecordCursor } from "@/lib/record-cursor";
+import { tagForAccount } from "@/lib/account-scope";
 
 // GET /api/tags/:id/records?cursor=&limit=20 — paginación por cursor (createdAt+id).
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await getSession())) {
+  const session = await requireAccountSession();
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const accountId = accountIdFrom(session);
   const { id: tagId } = await params;
-  const tag = await prisma.tag.findUnique({ where: { id: tagId }, select: { id: true } });
+  const tag = await tagForAccount(tagId, accountId);
   if (!tag) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const url = new URL(request.url);
@@ -21,6 +24,7 @@ export async function GET(
 
   const items = await prisma.record.findMany({
     where: {
+      accountId,
       tags: { some: { id: tagId } },
       ...(cursor && {
         OR: [
