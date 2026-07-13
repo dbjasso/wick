@@ -94,13 +94,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.mustChangePassword = false;
         }
       }
-      // Admin bootstrapeado sin accountId: recargar cuando la DB ya lo tenga.
-      if (token.role === "ADMIN" && !token.accountId && token.sub) {
+      // Admin: sincronizar accountId (bootstrap / reclamo de legacy).
+      if (token.role === "ADMIN" && token.sub) {
         const user = await prisma.user.findUnique({
           where: { id: token.sub },
           select: { accountId: true },
         });
-        if (user?.accountId) token.accountId = user.accountId;
+        if (user) token.accountId = user.accountId;
       }
       return token;
     },
