@@ -4,6 +4,52 @@ import { passwordHashFromEnvB64 } from "@/lib/password";
 
 const LEGACY_ACCOUNT_ID = "legacy-account";
 
+/** Mueve records/tags de `fromId` a `toId` y borra la cuenta origen si queda vacía. */
+async function mergeAccountInto(fromId: string, toId: string) {
+  if (fromId === toId) return;
+
+  await prisma.record.updateMany({
+    where: { accountId: fromId },
+    data: { accountId: toId },
+  });
+
+  const tags = await prisma.tag.findMany({ where: { accountId: fromId } });
+  for (const tag of tags) {
+    const clash = await prisma.tag.findUnique({
+      where: { accountId_name: { accountId: toId, name: tag.name } },
+    });
+    if (!clash) {
+      await prisma.tag.update({
+        where: { id: tag.id },
+        data: { accountId: toId },
+      });
+      continue;
+    }
+    // Mismo nombre en destino: apunta los records al tag existente y borra el duplicado.
+    const linked = await prisma.record.findMany({
+      where: { tags: { some: { id: tag.id } } },
+      select: { id: true },
+    });
+    for (const r of linked) {
+      await prisma.record.update({
+        where: { id: r.id },
+        data: {
+          tags: { disconnect: { id: tag.id }, connect: { id: clash.id } },
+        },
+      });
+    }
+    await prisma.tag.delete({ where: { id: tag.id } });
+  }
+
+  const left = await prisma.account.findUnique({
+    where: { id: fromId },
+    include: { _count: { select: { records: true, tags: true } } },
+  });
+  if (left && left._count.records === 0 && left._count.tags === 0) {
+    await prisma.account.delete({ where: { id: fromId } });
+  }
+}
+
 /** Reclama la cuenta legacy/huérfana si existe; si no, crea una vacía. */
 async function claimOrCreateAccountId() {
   const legacy = await prisma.account.findFirst({
@@ -23,12 +69,14 @@ async function claimOrCreateAccountId() {
 
 /**
  * Si el admin no tiene cuenta, la vincula.
- * Si quedó en una cuenta vacía y legacy huérfana tiene datos, reconecta.
+ * Si legacy huérfana tiene más datos que la cuenta actual, reconecta y mergea.
  */
 async function ensureAdminAccount(
   admin: { id: string; accountId: string | null },
 ) {
   if (admin.accountId) {
+    if (admin.accountId === LEGACY_ACCOUNT_ID) return admin;
+
     const current = await prisma.account.findUnique({
       where: { id: admin.accountId },
       include: { _count: { select: { records: true, tags: true } } },
@@ -37,19 +85,18 @@ async function ensureAdminAccount(
       where: { id: LEGACY_ACCOUNT_ID, user: null },
       include: { _count: { select: { records: true, tags: true } } },
     });
-    // ponytail: solo repara el caso bootstrap→cuenta vacía vs legacy con datos
-    if (
-      current &&
-      current._count.records === 0 &&
-      current._count.tags === 0 &&
-      legacy &&
-      (legacy._count.records > 0 || legacy._count.tags > 0)
-    ) {
+    const currentN =
+      (current?._count.records ?? 0) + (current?._count.tags ?? 0);
+    const legacyN =
+      (legacy?._count.records ?? 0) + (legacy?._count.tags ?? 0);
+
+    // ponytail: legacy huérfana con más data → reclamar (cubre cuenta vacía o casi vacía post-deploy)
+    if (legacy && legacyN > currentN) {
       const updated = await prisma.user.update({
         where: { id: admin.id },
         data: { accountId: legacy.id },
       });
-      await prisma.account.delete({ where: { id: current.id } });
+      if (current) await mergeAccountInto(current.id, legacy.id);
       return updated;
     }
     return admin;
