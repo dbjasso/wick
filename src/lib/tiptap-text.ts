@@ -1,3 +1,5 @@
+import { ensureTitleH1 } from "@/lib/ensure-title-h1";
+
 // Extrae texto plano de un nodo/JSON de TipTap (recorre content y text).
 export function extractText(node: unknown): string {
   if (typeof node === "string") return node;
@@ -16,38 +18,15 @@ export function previewText(content: unknown, max = 140): string {
 
 export type PreviewSegment = { text: string; todo: boolean };
 
-// Segmenta un documento TipTap para el preview de una card: un título (primer
-// heading, o el primer párrafo si no hay heading) y una lista de segmentos de
-// texto. Los taskItem se emiten como "☐ texto" (todo: true) para pintarlos en
-// text-3; el resto va como texto normal.
+// Segmenta un documento TipTap para el preview de una card: título = primer
+// bloque (siempre h1 vía ensureTitleH1) y el resto como segmentos. Los
+// taskItem se emiten como "☐ texto" (todo: true) para pintarlos en text-3.
 export function previewSegments(
   content: unknown,
 ): { title: string; segments: PreviewSegment[] } {
-  const root = content as { type?: string; content?: unknown[] } | null;
-  const top = root && Array.isArray(root.content) ? root.content : [];
-
-  let titleIdx = -1;
-  let title = "";
-  top.forEach((node, i) => {
-    if (titleIdx === -1 && (node as { type?: string }).type === "heading") {
-      const t = extractText((node as { content?: unknown }).content).trim();
-      if (t) {
-        titleIdx = i;
-        title = t;
-      }
-    }
-  });
-  if (!title) {
-    top.forEach((node, i) => {
-      if (titleIdx === -1 && (node as { type?: string }).type === "paragraph") {
-        const t = extractText((node as { content?: unknown }).content).trim();
-        if (t) {
-          titleIdx = i;
-          title = t;
-        }
-      }
-    });
-  }
+  const top = ensureTitleH1(content).content ?? [];
+  const titleIdx = 0;
+  const title = top[0] ? extractText(top[0]).trim() : "";
 
   const segments: PreviewSegment[] = [];
   top.forEach((node, i) => {

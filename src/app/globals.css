@@ -45,8 +45,43 @@ mark {
   font-size: 15px;
   line-height: 1.65;
 }
+/* Sheet — crece con el contenido; el scroll es de la ventana */
+.prose-editor.prose-editor--sheet .ProseMirror {
+  min-height: 8rem;
+  padding-left: 1.75rem; /* espacio para -ml-7 de TaskItemView */
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.7;
+  font-weight: 400;
+  color: #1a1a1a;
+}
+.prose-editor.prose-editor--sheet .ProseMirror > h1.is-empty:first-child::before,
+.prose-editor.prose-editor--sheet .ProseMirror > h1.is-editor-empty:first-child::before {
+  content: "Título…";
+  color: #c9c6bf;
+  font-size: 28px;
+  font-weight: 700;
+  pointer-events: none;
+  float: none;
+  height: auto;
+}
+.prose-editor.prose-editor--sheet .ProseMirror > h1:first-child + p.is-empty::before,
+.prose-editor.prose-editor--sheet .ProseMirror > h1:first-child + p.is-editor-empty::before {
+  content: "Sigue escribiendo… usa [] para un to-do, # para tags";
+  color: #c9c6bf;
+  font-size: 18px;
+  pointer-events: none;
+  float: none;
+  height: auto;
+}
 .prose-editor .ProseMirror:focus {
   outline: none;
+}
+.prose-editor .ProseMirror h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 0.5em;
+  line-height: 1.25;
 }
 .prose-editor .ProseMirror h2 {
   font-size: 21px;

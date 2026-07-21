@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 // Bump when schema changes so dev hot-reload doesn't keep a stale PrismaClient.
-const SCHEMA_FINGERPRINT = "todo-dueDate-v2-explicit-url";
+const SCHEMA_FINGERPRINT = "record-revision-v2";
 
 function createPrisma() {
   const url = process.env.DATABASE_URL;
@@ -27,9 +27,12 @@ function getPrisma(): PrismaClient {
 
   if (cacheOk) return globalForPrisma.prisma!;
 
+  // Descarta cliente viejo (sin modelos nuevos) en hot-reload
+  if (globalForPrisma.prisma) {
+    void globalForPrisma.prisma.$disconnect().catch(() => {});
+  }
+
   const client = createPrisma();
-  // Cache en prod también: serverless reusa la instancia; sin esto el Proxy
-  // creaba un PrismaClient nuevo en cada prisma.* del mismo request.
   globalForPrisma.prisma = client;
   globalForPrisma.prismaUrl = url;
   globalForPrisma.prismaFingerprint = SCHEMA_FINGERPRINT;

@@ -5,8 +5,10 @@ import { createRecordSchema } from "@/lib/schemas";
 import { syncRecordTags } from "@/lib/records";
 import { repairTaskItemNodeIds, syncTodoItems } from "@/lib/todos";
 import { sanitizeContent } from "@/lib/sanitize";
+import { EMPTY_TITLE_DOC } from "@/lib/ensure-title-h1";
+import { authorFromEmail, ensureCreatedRevision } from "@/lib/revisions";
 
-const EMPTY_DOC = { type: "doc", content: [] };
+const EMPTY_DOC = EMPTY_TITLE_DOC;
 
 // GET /api/records?page=1&limit=20 — lista paginada (date desc, createdAt desc).
 export async function GET(request: Request) {
@@ -67,6 +69,11 @@ export async function POST(request: Request) {
     await syncRecordTags(record.id, tags, accountId);
   }
   await syncTodoItems(record.id, safeContent);
+  await ensureCreatedRevision({
+    recordId: record.id,
+    content: safeContent,
+    author: authorFromEmail(session.user.email),
+  });
 
   const fresh = await prisma.record.findUnique({
     where: { id: record.id },

@@ -9,6 +9,8 @@
 // acá o el contenido nuevo se descarta al guardar. Upgrade: validar contra el
 // schema real de TipTap (Node.fromJSON con el schema del editor) en el servidor.
 
+import { ensureTitleH1 } from "@/lib/ensure-title-h1";
+
 const ALLOWED_NODES = new Set([
   "doc",
   "paragraph",
@@ -105,5 +107,5 @@ export function sanitizeContent(content: unknown): unknown {
   const cleanedContent = Array.isArray(content.content)
     ? content.content.map(walk).filter((x) => x !== null)
     : [];
-  return { type: "doc", content: cleanedContent };
+  return ensureTitleH1({ type: "doc", content: cleanedContent });
 }

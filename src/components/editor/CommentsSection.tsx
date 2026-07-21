@@ -1,20 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
 
 export type CommentData = {
   id: string;
   content: string;
-  createdAt: string; // ISO
+  createdAt: string;
 };
 
 export function CommentsSection({
   recordId,
   initial,
+  authorInitials = "DI",
 }: {
   recordId: string;
   initial: CommentData[];
+  authorInitials?: string;
 }) {
   const [comments, setComments] = useState<CommentData[]>(initial);
   const [text, setText] = useState("");
@@ -45,52 +46,59 @@ export function CommentsSection({
   }
 
   return (
-    <section className="mt-8 border-t border-border pt-6">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-3">
-        Comentarios
-      </h2>
-      <ul className="mb-4 space-y-2">
-        {comments.map((c) => (
-          <li key={c.id} className="rounded-card border border-border bg-surface px-3 py-2 text-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 whitespace-pre-wrap break-words text-text">
-                {c.content}
+    <div className="rounded-2xl border border-[#E7E5DF] bg-white px-7 py-5">
+      <p className="text-xs tracking-[2px] text-[#8a8a84]">COMENTARIOS</p>
+
+      {comments.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {comments.map((c) => (
+            <li key={c.id} className="flex gap-3">
+              <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-[#ECEAE5] text-xs font-semibold text-[#1a1a1a]">
+                {authorInitials}
+              </span>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="whitespace-pre-wrap break-words text-sm text-[#1a1a1a]">{c.content}</p>
+                  <button
+                    type="button"
+                    onClick={() => void remove(c.id)}
+                    className="shrink-0 text-xs text-[#b5b3ad] hover:text-[#1a1a1a]"
+                    aria-label="Eliminar comentario"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="mt-0.5 text-[11px] tabular-nums text-[#b5b3ad]">
+                  {new Date(c.createdAt).toLocaleString("es-AR")}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => remove(c.id)}
-                className="shrink-0 rounded-btn px-1.5 py-0.5 text-xs text-text-3 hover:bg-surface-2 hover:text-text"
-                aria-label="Eliminar comentario"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="mt-1 text-xs tabular-nums text-text-3">
-              {new Date(c.createdAt).toLocaleString("es-AR")}
-            </div>
-          </li>
-        ))}
-        {comments.length === 0 && (
-          <li className="text-sm text-text-3">Sin comentarios.</li>
-        )}
-      </ul>
-      <div className="flex items-end gap-2">
-        <textarea
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-3.5 flex items-center gap-3">
+        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-[#ECEAE5] text-xs font-semibold text-[#1a1a1a]">
+          {authorInitials}
+        </span>
+        <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          rows={2}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void add();
+          }}
           placeholder="Agregar un comentario…"
-          className="flex-1 rounded-btn border border-border-strong bg-surface px-3 py-2 text-sm text-text placeholder:text-text-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          className="min-w-0 flex-1 rounded-[10px] border border-[#DEDCD6] px-3.5 py-2.5 text-sm text-[#1a1a1a] placeholder:text-[#b5b3ad] focus:border-[#c9c6bf] focus:outline-none"
         />
-        <Button
+        <button
           type="button"
-          variant="primary"
-          onClick={add}
+          onClick={() => void add()}
           disabled={sending || !text.trim()}
+          className="shrink-0 rounded-[10px] bg-[#EFEDE8] px-[18px] py-2.5 text-sm font-medium text-[#8a8a84] transition hover:bg-[#E7E5DF] disabled:opacity-50"
         >
           {sending ? "…" : "Agregar"}
-        </Button>
+        </button>
       </div>
-    </section>
+    </div>
   );
 }

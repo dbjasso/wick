@@ -52,6 +52,20 @@ model Record {
   tags      Tag[]     @relation("RecordTags")
   comments  Comment[]
   todoItems TodoItem[]
+  revisions RecordRevision[]
+}
+
+// Snapshot del content TipTap en un momento. Restaurar no borra filas.
+model RecordRevision {
+  id        String   @id @default(cuid())
+  record    Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  recordId  String
+  content   Json
+  summary   String
+  author    String // email local-part o nombre corto
+  createdAt DateTime @default(now())
+
+  @@index([recordId, createdAt])
 }
 
 model TodoItem {

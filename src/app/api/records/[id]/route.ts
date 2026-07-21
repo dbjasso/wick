@@ -6,6 +6,7 @@ import { syncRecordTags } from "@/lib/records";
 import { repairTaskItemNodeIds, syncTodoItems } from "@/lib/todos";
 import { sanitizeContent } from "@/lib/sanitize";
 import { recordForAccount } from "@/lib/account-scope";
+import { authorFromEmail, commitSessionRevision } from "@/lib/revisions";
 
 // GET /api/records/:id
 export async function GET(
@@ -56,6 +57,11 @@ export async function PATCH(
     return NextResponse.json({ error: "Validation", details: parsed.error.flatten() }, { status: 400 });
   }
   const { date, content, tags } = parsed.data;
+  const forceSnapshot =
+    typeof body === "object" &&
+    body !== null &&
+    "snapshot" in body &&
+    (body as { snapshot?: unknown }).snapshot === true;
 
   const existing = await recordForAccount(id, accountId);
   if (!existing) {
@@ -78,6 +84,16 @@ export async function PATCH(
   }
   if (tags !== undefined) {
     await syncRecordTags(id, tags, accountId);
+  }
+
+  // Versión solo al cerrar sesión de edición (cliente manda snapshot: true)
+  if (forceSnapshot) {
+    const contentForRev = safeContent ?? existing.content;
+    await commitSessionRevision({
+      recordId: id,
+      content: contentForRev,
+      author: authorFromEmail(session.user.email),
+    });
   }
 
   const fresh = await prisma.record.findUnique({
