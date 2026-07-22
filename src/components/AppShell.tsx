@@ -22,7 +22,7 @@ export function AppShell({
   const active = navKeyFromPath(path);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-dvh overflow-hidden">
       <Sidebar
         active={active}
         pendingCount={pendingCount}
@@ -30,7 +30,9 @@ export function AppShell({
         isAdmin={isAdmin}
         onLogout={() => signOut({ redirectTo: "/login" })}
       />
-      <div className="flex min-w-0 flex-1 flex-col pb-20 md:pb-0">{children}</div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-20 md:pb-0">
+        {children}
+      </div>
       <MobileNav
         active={active}
         pendingCount={pendingCount}

@@ -76,11 +76,14 @@ model TodoItem {
   // Fecha de ejecución opcional (solo día, sin hora). Se sincroniza desde el
   // atributo `dueDate` del taskItem de TipTap. Editable también desde To-dos.
   dueDate   DateTime?
+  // Orden manual en la vista To-dos. null = sin reorder aún (cae al sort por dueDate).
+  sortOrder Int?
   record    Record    @relation(fields: [recordId], references: [id], onDelete: Cascade)
   recordId  String
   updatedAt DateTime  @updatedAt
 
   @@unique([recordId, nodeId])
+  @@index([sortOrder])
 }
 
 model Tag {

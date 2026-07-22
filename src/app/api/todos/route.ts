@@ -43,7 +43,12 @@ export async function GET(request: Request) {
 
   let todos = await prisma.todoItem.findMany({
     where,
-    orderBy: [{ dueDate: "asc" }, { record: { date: "desc" } }, { updatedAt: "desc" }],
+    orderBy: [
+      { sortOrder: { sort: "asc", nulls: "last" } },
+      { dueDate: "asc" },
+      { record: { date: "desc" } },
+      { updatedAt: "desc" },
+    ],
     include: {
       record: { include: { tags: true } },
     },

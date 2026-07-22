@@ -103,7 +103,7 @@ export function BuscarView() {
   const empty = hasQuery && !loading && totalCount === 0;
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-10">
         <h1 className="pb-5 font-display text-3xl text-stone-900">Search</h1>
 

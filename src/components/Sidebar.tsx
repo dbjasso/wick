@@ -44,7 +44,7 @@ export function Sidebar({
     : null;
 
   return (
-    <aside className="hidden h-screen w-60 shrink-0 flex-col border-r border-stone-200/70 bg-stone-50 px-3 py-4 md:flex">
+    <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-stone-200/70 bg-stone-50 px-3 py-4 md:flex">
       <div className="flex items-center gap-2.5 px-2 pb-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-stone-900 font-display text-sm text-white">
           T
